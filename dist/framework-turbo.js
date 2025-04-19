@@ -2638,7 +2638,9 @@ var Request = /*#__PURE__*/function () {
           this.formEl.removeAttribute('data-ajax-progress');
         }
       }
-    }
+    } // @todo v2: this needs to pass more than just "data"
+    // perhaps { data, responseCode, headers }
+
   }, {
     key: "wrapInAsyncPromise",
     value: function wrapInAsyncPromise(requestPromise) {
