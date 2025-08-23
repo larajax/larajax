@@ -128,7 +128,19 @@ export class Actions
         }
         // Standard error with standard response text
         else {
-            errorMsg = data;
+            if (data.constructor === {}.constructor) {
+                if (data.message) {
+                    errorMsg = data.message;
+                }
+                else {
+                    errorMsg = "Something went wrong! Check the browser console.";
+                    console.warn(data);
+                }
+            }
+            else {
+                errorMsg = data;
+            }
+
             updatePromise.resolve();
         }
 
