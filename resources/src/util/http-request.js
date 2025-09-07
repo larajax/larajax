@@ -170,8 +170,8 @@ export class HttpRequest
 }
 
 function contentResponseIsRedirect(xhr, url) {
-    if (xhr.getResponseHeader('X-OCTOBER-LOCATION')) {
-        return xhr.getResponseHeader('X-OCTOBER-LOCATION');
+    if (xhr.getResponseHeader('X-AJAX-LOCATION')) {
+        return xhr.getResponseHeader('X-AJAX-LOCATION');
     }
 
     var anchorMatch = url.match(/^(.*)#/),

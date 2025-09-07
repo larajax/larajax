@@ -1,13 +1,8 @@
 import { AssetManager } from "./asset-manager";
+import { Envelope } from "./envelope";
+import { DomPatcher, resolveSelectorResponse } from "./dom-patcher";
 import { Deferred } from "../util/deferred";
 import { getReferrerUrl } from "../util/referrer";
-
-export var ActionsUpdateMode = {
-    replaceWith: 'replace',
-    prepend: 'prepend',
-    append: 'append',
-    update: 'update'
-}
 
 export class Actions
 {
@@ -56,7 +51,8 @@ export class Actions
     }
 
     success(data, responseCode, xhr) {
-        let updatePromise = new Deferred;
+        let updatePromise = new Deferred,
+            updateEnv = new Envelope(data, responseCode);
 
         // Halt here if beforeUpdate() or data-request-before-update returns false
         if (this.invoke('beforeUpdate', [data, responseCode, xhr]) === false) {
@@ -82,14 +78,16 @@ export class Actions
         }
 
         // Dispatch flash messages
-        if (this.delegate.options.flash && data['X_OCTOBER_FLASH_MESSAGES']) {
-            for (var type in data['X_OCTOBER_FLASH_MESSAGES']) {
-                this.invoke('handleFlashMessage', [data['X_OCTOBER_FLASH_MESSAGES'][type], type]);
+        const flashMessages = this.delegate.options.flash ? updateEnv.getFlash() : null;
+        if (flashMessages) {
+            for (var flashMessage in flashMessages) {
+                this.invoke('handleFlashMessage', [flashMessage.text, flashMessage.level]);
             }
         }
 
         // Browser event has halted the process
-        if (data['X_OCTOBER_DISPATCHES'] && this.invoke('handleBrowserEvents', [data['X_OCTOBER_DISPATCHES']])) {
+        const browserEvents = updateEnv.getBrowserEvents();
+        if (browserEvents && this.invoke('handleBrowserEvents', [browserEvents])) {
             return updatePromise;
         }
 
@@ -105,8 +103,9 @@ export class Actions
     }
 
     error(data, responseCode, xhr) {
-        let errorMsg,
-            updatePromise = new Deferred;
+        let updatePromise = new Deferred,
+            updateEnv = new Envelope(data, responseCode),
+            errorMsg = updateEnv.getMessage();
 
         if (window.ocUnloading !== undefined && window.ocUnloading) {
             return updatePromise;
@@ -115,21 +114,18 @@ export class Actions
         // Disable redirects
         this.delegate.toggleRedirect(false);
 
-        // Error 406 is a "smart error" that returns response object that is
-        // processed in the same fashion as a successful response. The response
-        // may also dispatch events which can halt the process
-        if (responseCode == 406 && data) {
-            if (data['X_OCTOBER_DISPATCHES'] && this.invoke('handleBrowserEvents', [data['X_OCTOBER_DISPATCHES']])) {
+        if (!updateEnv.isFatal() && data) {
+            const browserEvents = updateEnv.getBrowserEvents();
+            if (browserEvents && this.invoke('handleBrowserEvents', [browserEvents])) {
                 return updatePromise;
             }
 
-            errorMsg = data['X_OCTOBER_ERROR_MESSAGE'];
             updatePromise = this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
         }
         // Standard error with standard response text
         else {
             if (data.constructor === {}.constructor) {
-                if (data.message) {
+                if (!errorMsg && data.message) {
                     errorMsg = data.message;
                 }
                 else {
@@ -338,58 +334,23 @@ export class Actions
     // Using a promissory object here in case injected assets need time to load
     handleUpdateResponse(data, responseCode, xhr) {
         var updateOptions = this.options.update || {},
-            updatePromise = new Deferred;
+            updatePromise = new Deferred,
+            updateEnv = new Envelope(data, responseCode);
 
         // Update partials and finish request
         updatePromise.done(() => {
-            for (var partial in data) {
-                // If a partial has been supplied on the client side that matches the server supplied key, look up
-                // it's selector and use that. If not, we assume it is an explicit selector reference.
-                let selector = updateOptions[partial] || partial;
-                let selectedEl = [];
+            const domPatcher = new DomPatcher(updateEnv, updateOptions, {
+                partial: this.options.partial,
+                partialEl: this.delegate.partialEl
+            });
 
-                // If the update options has a _self, values like true and '^' will resolve to the partial element,
-                // these values are also used to make AJAX partial handlers available without performing an update
-                if (updateOptions['_self'] && partial == this.options.partial && this.delegate.partialEl) {
-                    selector = updateOptions['_self'];
-                    selectedEl = [this.delegate.partialEl];
-                }
-                else {
-                    selectedEl = resolveSelectorResponse(selector, '[data-ajax-partial="'+partial+'"]');
-                }
+            domPatcher.afterUpdate((el) => {
+                this.delegate.notifyApplicationAjaxUpdate(el, data, responseCode, xhr);
+            });
 
-                selectedEl.forEach((el) => {
-                    const updateMode = getSelectorUpdateMode(selector, el);
+            domPatcher.apply();
 
-                    // Replace With
-                    if (updateMode === ActionsUpdateMode.replaceWith) {
-                        const parentNode = el.parentNode;
-                        el.insertAdjacentHTML('afterEnd', data[partial]);
-                        parentNode.removeChild(el);
-                        runScriptsOnFragment(parentNode, data[partial]);
-                    }
-                    // Append
-                    else if (updateMode === ActionsUpdateMode.append) {
-                        el.insertAdjacentHTML('beforeEnd', data[partial]);
-                        runScriptsOnFragment(el, data[partial]);
-                    }
-                    // Prepend
-                    else if (updateMode === ActionsUpdateMode.prepend) {
-                        el.insertAdjacentHTML('afterBegin', data[partial]);
-                        runScriptsOnFragment(el, data[partial]);
-                    }
-                    // Insert
-                    else {
-                        this.delegate.notifyApplicationBeforeReplace(el);
-                        el.innerHTML = data[partial];
-                        runScriptsOnElement(el);
-                    }
-
-                    this.delegate.notifyApplicationAjaxUpdate(el, data, responseCode, xhr);
-                });
-            }
-
-            // Wait for update method to finish rendering from partial updates
+            // Wait for the dom patcher to finish rendering from partial updates
             setTimeout(() => {
                 this.delegate.notifyApplicationUpdateComplete(data, responseCode, xhr);
                 this.invoke('afterUpdate', [data, responseCode, xhr]);
@@ -398,8 +359,10 @@ export class Actions
         });
 
         // Handle redirect
-        if (data['X_OCTOBER_REDIRECT']) {
-            this.delegate.toggleRedirect(data['X_OCTOBER_REDIRECT']);
+        const redirectUrl = updateEnv.getRedirectUrl();
+        if (redirectUrl) {
+            alert(redirectUrl);
+            this.delegate.toggleRedirect(redirectUrl);
         }
 
         if (this.delegate.isRedirect) {
@@ -407,13 +370,15 @@ export class Actions
         }
 
         // Handle validation
-        if (data['X_OCTOBER_ERROR_FIELDS']) {
-            this.invoke('handleValidationMessage', [data['X_OCTOBER_ERROR_MESSAGE'], data['X_OCTOBER_ERROR_FIELDS']]);
+        const invalidFields = updateEnv.getInvalid();
+        if (invalidFields) {
+            this.invoke('handleValidationMessage', [updateEnv.getMessage(), invalidFields]);
         }
 
         // Handle asset injection
-        if (data['X_OCTOBER_ASSETS']) {
-            AssetManager.load(data['X_OCTOBER_ASSETS'], function() {
+        const loadAssets = updateEnv.getAssets();
+        if (loadAssets) {
+            AssetManager.load(loadAssets, function() {
                 return updatePromise.resolve();
             });
         }
@@ -483,84 +448,6 @@ export class Actions
             localStorage.setItem('ocPushStateReferrer', newUrl);
         }
     }
-}
-
-function resolveSelectorResponse(selector, partialSelector) {
-    // Look for AJAX partial selectors
-    if (selector === true) {
-        return document.querySelectorAll(partialSelector);
-    }
-
-    // Selector is DOM element
-    if (typeof selector !== 'string') {
-        return [selector];
-    }
-
-    // Invalid selector
-    if (['#', '.', '@', '^', '!', '='].indexOf(selector.charAt(0)) === -1) {
-        return [];
-    }
-
-    // Append, prepend, replace with or custom selector
-    if (['@', '^', '!', '='].indexOf(selector.charAt(0)) !== -1) {
-        selector = selector.substring(1);
-    }
-
-    // Empty selector remains
-    if (!selector) {
-        selector = partialSelector;
-    }
-
-    return document.querySelectorAll(selector);
-}
-
-function getSelectorUpdateMode(selector, el) {
-    // Look at selector prefix
-    if (typeof selector === 'string') {
-        if (selector.charAt(0) === '!') {
-            return ActionsUpdateMode.replaceWith;
-        }
-        if (selector.charAt(0) === '@') {
-            return ActionsUpdateMode.append;
-        }
-        if (selector.charAt(0) === '^') {
-            return ActionsUpdateMode.prepend;
-        }
-    }
-
-    // Look at element dataset
-    if (el.dataset.ajaxUpdateMode !== undefined) {
-        return el.dataset.ajaxUpdateMode;
-    }
-
-    // Default mode
-    return ActionsUpdateMode.update;
-}
-
-// Replaces blocked scripts with fresh nodes
-function runScriptsOnElement(el) {
-    Array.from(el.querySelectorAll('script')).forEach(oldScript => {
-        const newScript = document.createElement('script');
-        Array.from(oldScript.attributes)
-            .forEach(attr => newScript.setAttribute(attr.name, attr.value));
-        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-        oldScript.parentNode.replaceChild(newScript, oldScript);
-    });
-}
-
-// Runs scripts on a fragment inside a container
-function runScriptsOnFragment(container, html) {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-
-    Array.from(div.querySelectorAll('script')).forEach(oldScript => {
-        const newScript = document.createElement('script');
-        Array.from(oldScript.attributes)
-            .forEach(attr => newScript.setAttribute(attr.name, attr.value));
-        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-        container.appendChild(newScript);
-        container.removeChild(newScript);
-    });
 }
 
 function getFilenameFromHttpResponse(xhr) {
