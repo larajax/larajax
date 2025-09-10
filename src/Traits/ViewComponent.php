@@ -3,6 +3,8 @@
 namespace October\Ajax\Traits;
 
 use Exception;
+use October\Ajax\Contracts\AjaxControllerInterface;
+use October\Ajax\Contracts\ViewComponentInterface;
 
 /**
  * ViewComponent is a trait that can be implemented in a component...
@@ -28,7 +30,7 @@ trait ViewComponent
     /**
      * createIn controller
      */
-    public static function createIn(object $controller, array $config)
+    public static function createIn(AjaxControllerInterface $controller, array $config = []): ViewComponentInterface
     {
         $instance = new static;
 
