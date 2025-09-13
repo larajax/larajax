@@ -2,6 +2,10 @@
 
 namespace October\Ajax\Classes;
 
+use Stringable;
+use JsonSerializable;
+use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Contracts\Support\Responsable;
 
 /**
@@ -47,34 +51,79 @@ class AjaxResponse implements Responsable
      */
     public function toResponse($request)
     {
-        return response(
-            $this->ajaxData['content'],
+        $env = $this->ajaxData['content'];
+        $data = $env['data'];
+        unset($env['data']);
+
+        return response([
+                ...$data,
+                '__ajax' => $env
+            ],
             $this->ajaxData['status'],
             $this->ajaxData['headers']
         );
     }
-
     /**
-     * ok determines if the response should be treated as successful or an error
+     * wrap arbitrary handler output into an AjaxResponse.
+     * - Associative arrays merge into `data`
+     * - Everything else lands in `data['result']`
      */
-    public function ok(bool $ok = true): static
+    public static function wrap($result): static
     {
-        $this->ajaxData['content']['ok'] = $ok;
+        if ($result instanceof self) {
+            return $result;
+        }
 
-        return $this;
+        $response = ajax();
+
+        if ($result instanceof Renderable) {
+            return $response->data(['result' => $result->render()]);
+        }
+
+        if ($result instanceof Arrayable) {
+            $arr = $result->toArray();
+            return self::isAssoc($arr) ? $response->data($arr) : $response->data(['result' => $arr]);
+        }
+
+        if ($result instanceof JsonSerializable) {
+            $json = $result->jsonSerialize();
+            return is_array($json) && self::isAssoc($json)
+                ? $response->data($json)
+                : $response->data(['result' => $json]);
+        }
+
+        if (is_array($result)) {
+            return self::isAssoc($result)
+                ? $response->data($result)
+                : $response->data(['result' => $result]);
+        }
+
+        if (is_string($result) || is_numeric($result) || is_bool($result) || is_null($result)) {
+            return $response->data(['result' => $result]);
+        }
+
+        if ($result instanceof Stringable) {
+            return $response->data(['result' => (string) $result]);
+        }
+
+        // Abort wrapping for custom responses, such as a file downloads
+        return $result;
     }
 
     /**
-     * severity of the response:
-     * - info: successful response
-     * - error: application error, validation error
-     * - fatal: system error, halt processing
+     * Handles a generic exception including validation errors.
      */
-    public function severity(string $level): static
+    public function exception($exception)
     {
-        $this->ajaxData['content']['severity'] = $level;
+        if ($exception instanceof \Illuminate\Validation\ValidationException) {
+            return $this->invalidFields($exception->errors());
+        }
 
-        return $this;
+        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) {
+            return $this->error('Access Denied');
+        }
+
+        return $this->error($exception->getMessage());
     }
 
     /**
@@ -95,9 +144,9 @@ class AjaxResponse implements Responsable
      */
     public function error(string $message, $status = 400): static
     {
-        $this->ok(false);
+        $this->ajaxData['content']['ok'] = false;
 
-        $this->severity(self::SEVERITY_ERROR);
+        $this->ajaxData['content']['severity'] = self::SEVERITY_ERROR;
 
         $this->ajaxData['status'] = $status;
 
@@ -111,9 +160,9 @@ class AjaxResponse implements Responsable
      */
     public function fatal(string $message, $status = 500): static
     {
-        $this->ok(false);
+        $this->ajaxData['content']['ok'] = false;
 
-        $this->severity(self::SEVERITY_FATAL);
+        $this->ajaxData['content']['severity'] = self::SEVERITY_FATAL;
 
         $this->ajaxData['status'] = $status;
 
@@ -141,9 +190,9 @@ class AjaxResponse implements Responsable
     {
         $this->ajaxData['status'] = 422;
 
-        $this->ok(false);
+        $this->ajaxData['content']['ok'] = false;
 
-        $this->severity(self::SEVERITY_ERROR);
+        $this->ajaxData['content']['severity'] = self::SEVERITY_ERROR;
 
         $invalid = (array) ($this->ajaxData['content']['invalid'] ?? []);
 
@@ -155,22 +204,6 @@ class AjaxResponse implements Responsable
         $this->ajaxData['content']['invalid'] = $invalid;
 
         return $this;
-    }
-
-    /**
-     * Handles a generic exception including validation errors.
-     */
-    public function exception($exception)
-    {
-        if ($exception instanceof \Illuminate\Validation\ValidationException) {
-            return $this->invalidFields($exception->errors());
-        }
-
-        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) {
-            return $this->error('Access Denied');
-        }
-
-        return $this->error($exception->getMessage());
     }
 
     /**
@@ -276,19 +309,19 @@ class AjaxResponse implements Responsable
     /**
      * Adds browser event dispatch with the AJAX response.
      */
-    public function browserEvent(string $name, $data, ?string $selector = null)
+    public function browserEvent(string $name, $data)
     {
-        $event = [
-            'op' => self::OP_DISPATCH,
-            'event' => $name,
-            'detail' => $data,
-        ];
+        $this->browserEventInternal($name, $data, false);
 
-        if ($selector) {
-            $event['selector'] = $selector;
-        }
+        return $this;
+    }
 
-        $this->ajaxData['content']['ops'][] = $event;
+    /**
+     * Adds asynchronous browser event dispatch with the AJAX response.
+     */
+    public function browserEventAsync(string $name, $data)
+    {
+        $this->browserEventInternal($name, $data, true);
 
         return $this;
     }
@@ -334,6 +367,21 @@ class AjaxResponse implements Responsable
     }
 
     /**
+     * browserEventInternal
+     */
+    protected function browserEventInternal(string $name, $data, $isAsync = false)
+    {
+        $event = [
+            'op' => self::OP_DISPATCH,
+            'event' => $name,
+            'detail' => $data,
+            'async' => $isAsync
+        ];
+
+        $this->ajaxData['content']['ops'][] = $event;
+    }
+
+    /**
      * normalizeRenderable is an internal method to turn strings / Renderable into HTML.
      */
     protected function normalizeRenderable($content): string
@@ -347,5 +395,13 @@ class AjaxResponse implements Responsable
         }
 
         return is_string($content) ? $content : '';
+    }
+
+    /**
+     * isAssoc returns true if an array is associative
+     */
+    protected static function isAssoc(array $arr): bool
+    {
+        return array_keys($arr) !== range(0, count($arr) - 1);
     }
 }

@@ -50,9 +50,8 @@ export class Actions
         }
     }
 
-    success(data, responseCode, xhr) {
-        let updatePromise = new Deferred,
-            updateEnv = new Envelope(data, responseCode);
+    async success(data, responseCode, xhr) {
+        let updatePromise = new Deferred;
 
         // Halt here if beforeUpdate() or data-request-before-update returns false
         if (this.invoke('beforeUpdate', [data, responseCode, xhr]) === false) {
@@ -77,20 +76,6 @@ export class Actions
             return updatePromise;
         }
 
-        // Dispatch flash messages
-        const flashMessages = this.delegate.options.flash ? updateEnv.getFlash() : null;
-        if (flashMessages) {
-            for (var flashMessage in flashMessages) {
-                this.invoke('handleFlashMessage', [flashMessage.text, flashMessage.level]);
-            }
-        }
-
-        // Browser event has halted the process
-        const browserEvents = updateEnv.getBrowserEvents();
-        if (browserEvents && this.invoke('handleBrowserEvents', [browserEvents])) {
-            return updatePromise;
-        }
-
         // Proceed with the update process
         updatePromise = this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
 
@@ -102,10 +87,9 @@ export class Actions
         return updatePromise;
     }
 
-    error(data, responseCode, xhr) {
+    async error(data, responseCode, xhr) {
         let updatePromise = new Deferred,
-            updateEnv = new Envelope(data, responseCode),
-            errorMsg = updateEnv.getMessage();
+            errorMsg = data.$env?.getMessage();
 
         if (window.ocUnloading !== undefined && window.ocUnloading) {
             return updatePromise;
@@ -114,12 +98,7 @@ export class Actions
         // Disable redirects
         this.delegate.toggleRedirect(false);
 
-        if (!updateEnv.isFatal() && data) {
-            const browserEvents = updateEnv.getBrowserEvents();
-            if (browserEvents && this.invoke('handleBrowserEvents', [browserEvents])) {
-                return updatePromise;
-            }
-
+        if (!data.$env?.isFatal() && data) {
             updatePromise = this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
         }
         // Standard error with standard response text
@@ -162,7 +141,7 @@ export class Actions
         return updatePromise;
     }
 
-    complete(data, responseCode, xhr) {
+    async complete(data, responseCode, xhr) {
         this.delegate.notifyApplicationRequestComplete(data, responseCode, xhr);
         this.invokeFunc('completeFunc', data);
         this.invoke('markAsUpdating', [false]);
@@ -272,7 +251,7 @@ export class Actions
 
         events.forEach(dispatched => {
             const event = this.delegate.notifyApplicationCustomEvent(dispatched.event, {
-                ...(dispatched.data || {}),
+                ...(dispatched.detail || {}),
                 context: this.context
             });
 
@@ -334,12 +313,11 @@ export class Actions
     // Using a promissory object here in case injected assets need time to load
     handleUpdateResponse(data, responseCode, xhr) {
         var updateOptions = this.options.update || {},
-            updatePromise = new Deferred,
-            updateEnv = new Envelope(data, responseCode);
+            updatePromise = new Deferred;
 
         // Update partials and finish request
         updatePromise.done(() => {
-            const domPatcher = new DomPatcher(updateEnv, updateOptions, {
+            const domPatcher = new DomPatcher(data.$env, updateOptions, {
                 partial: this.options.partial,
                 partialEl: this.delegate.partialEl
             });
@@ -358,10 +336,23 @@ export class Actions
             }, 0);
         });
 
+        // Dispatch flash messages
+        const flashMessages = this.delegate.options.flash ? data.$env?.getFlash() : null;
+        if (flashMessages) {
+            for (var flashMessage in flashMessages) {
+                this.invoke('handleFlashMessage', [flashMessage.text, flashMessage.level]);
+            }
+        }
+
+        // Handle browser events
+        const browserEvents = data.$env?.getBrowserEvents();
+        if (browserEvents && this.invoke('handleBrowserEvents', [browserEvents])) {
+            return updatePromise;
+        }
+
         // Handle redirect
-        const redirectUrl = updateEnv.getRedirectUrl();
+        const redirectUrl = data.$env?.getRedirectUrl();
         if (redirectUrl) {
-            alert(redirectUrl);
             this.delegate.toggleRedirect(redirectUrl);
         }
 
@@ -370,13 +361,13 @@ export class Actions
         }
 
         // Handle validation
-        const invalidFields = updateEnv.getInvalid();
+        const invalidFields = data.$env?.getInvalid();
         if (invalidFields) {
-            this.invoke('handleValidationMessage', [updateEnv.getMessage(), invalidFields]);
+            this.invoke('handleValidationMessage', [data.$env?.getMessage(), invalidFields]);
         }
 
         // Handle asset injection
-        const loadAssets = updateEnv.getAssets();
+        const loadAssets = data.$env?.getAssets();
         if (loadAssets) {
             AssetManager.load(loadAssets, function() {
                 return updatePromise.resolve();

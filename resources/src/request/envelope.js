@@ -1,10 +1,15 @@
 export class Envelope
 {
-    constructor(body = {}, status = 200) {
+    constructor(response = {}, status = 200) {
+        const {
+            __ajax: body,
+            ...data
+        } = response;
+
         this.ok = !!body.ok;
         this.severity = body.severity || 'info';
         this.message = body.message ?? null;
-        this.data = body.data || {};
+        this.data = data || {};
         this.invalid = body.invalid || {};
         this.ops = Array.isArray(body.ops) ? body.ops : [];
         this.redirect = null;

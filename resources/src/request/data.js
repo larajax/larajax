@@ -152,7 +152,7 @@ export class Data
     }
 
     castJsonToFormData(val) {
-        if (val === null) {
+        if (val === null || val === undefined) {
             return '';
         }
 

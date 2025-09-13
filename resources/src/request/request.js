@@ -1,3 +1,4 @@
+import { Envelope } from "./envelope";
 import { Options } from "./options";
 import { Actions } from "./actions";
 import { Data } from "./data";
@@ -254,22 +255,24 @@ export class Request
         this.promise.notify(progress);
     }
 
-    requestCompletedWithResponse(response, statusCode) {
-        this.actions.invoke('success', [response, statusCode, this.request.xhr]);
-        this.actions.invoke('complete', [response, statusCode, this.request.xhr]);
-        this.promise.resolve(response, statusCode, this.request.xhr);
+    async requestCompletedWithResponse(response, statusCode) {
+        const data = decorateResponse(response, statusCode, this.request.xhr);
+        await this.actions.invoke('success', [data, statusCode, this.request.xhr]);
+        await this.actions.invoke('complete', [data, statusCode, this.request.xhr]);
+        this.promise.resolve(data, statusCode, this.request.xhr);
     }
 
-    requestFailedWithStatusCode(statusCode, response) {
+    async requestFailedWithStatusCode(statusCode, response) {
+        const data = decorateResponse(response, statusCode, this.request.xhr);
         if (statusCode == SystemStatusCode.userAborted) {
-            this.actions.invoke('cancel', []);
+            await this.actions.invoke('cancel', []);
         }
         else {
-            this.actions.invoke('error', [response, statusCode, this.request.xhr]);
+            await this.actions.invoke('error', [data, statusCode, this.request.xhr]);
         }
 
-        this.actions.invoke('complete', [response, statusCode, this.request.xhr]);
-        this.promise.reject(response, statusCode, this.request.xhr);
+        await this.actions.invoke('complete', [data, statusCode, this.request.xhr]);
+        this.promise.reject(data, statusCode, this.request.xhr);
     }
 
     requestFinished() {
@@ -373,9 +376,6 @@ export class Request
         }
     }
 
-
-    // @todo v2: this needs to pass more than just "data"
-    // perhaps { data, responseCode, headers }
     wrapInAsyncPromise(requestPromise) {
         return new Promise(function (resolve, reject, onCancel) {
             requestPromise
@@ -393,4 +393,31 @@ export class Request
             }
         });
     }
+}
+
+function decorateResponse(response, statusCode, xhr) {
+    if (response.constructor !== {}.constructor || !response.__ajax) {
+        return response;
+    }
+
+    const
+        { __ajax, ...data } = response,
+        envelope = new Envelope(response, statusCode),
+        meta = {
+            env: envelope,
+            status: statusCode,
+            xhr: xhr
+        };
+
+    // Add each meta key as non-enumerable property prefixed with $
+    for (const [key, value] of Object.entries(meta)) {
+        Object.defineProperty(data, `$${key}`, {
+            value,
+            enumerable: false,
+            writable: false,
+            configurable: true,
+        });
+    }
+
+    return data;
 }

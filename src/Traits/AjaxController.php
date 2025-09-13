@@ -76,7 +76,7 @@ trait AjaxController
         }
 
         try {
-            return $method(...$parameters);
+            return ajax()::wrap($method(...$parameters));
         }
         catch (Exception $ex) {
             return ajax()->exception($ex);
@@ -96,7 +96,7 @@ trait AjaxController
      */
     protected function getAjaxHandlerName()
     {
-        return preg_replace('/[^a-zA-Z0-9]/', '', (string) request()->header('X-AJAX-REQUEST-HANDLER'));
+        return preg_replace('/[^a-zA-Z0-9]/', '', (string) request()->header('X-AJAX-HANDLER'));
     }
 
     /**

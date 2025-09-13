@@ -36,7 +36,7 @@ export class Options
         const { handler, options } = this;
         const headers = {
             'X-Requested-With': 'XMLHttpRequest',
-            'X-AJAX-REQUEST-HANDLER': handler
+            'X-AJAX-HANDLER': handler
         };
 
         if (!options.files) {
@@ -46,16 +46,16 @@ export class Options
         }
 
         if (options.flash) {
-            headers['X-AJAX-REQUEST-FLASH'] = 1;
+            headers['X-AJAX-FLASH'] = 1;
         }
 
         if (options.partial) {
-            headers['X-AJAX-REQUEST-PARTIAL'] = options.partial;
+            headers['X-AJAX-PARTIAL'] = options.partial;
         }
 
         var partials = this.extractPartials(options.update, options.partial);
         if (partials) {
-            headers['X-AJAX-REQUEST-PARTIALS'] = partials;
+            headers['X-AJAX-PARTIALS'] = partials;
         }
 
         var xsrfToken = this.getXSRFToken();
