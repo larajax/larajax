@@ -79,7 +79,7 @@ trait AjaxController
             return $method(...$parameters);
         }
         catch (Exception $ex) {
-            return ajax()->error($ex->getMessage());
+            return ajax()->exception($ex);
         }
     }
 
