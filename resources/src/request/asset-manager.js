@@ -1,131 +1,76 @@
 export class AssetManager
 {
-    static load(collection, callback) {
-        return (new AssetManager()).loadCollection(collection, callback);
+    /**
+     * Load a collection of assets.
+     * @param {{js?: string[], css?: string[], img?: string[]}} collection
+     * @param {(err?: Error) => void} [callback]  // optional; called on success or with error
+     * @returns {Promise<void>}
+     */
+    static load(collection = {}, callback) {
+        const manager = new AssetManager(),
+            promise = manager.loadCollection(collection);
+
+        if (typeof callback === 'function') {
+            promise.then(() => callback());
+        }
+
+        return promise;
     }
 
-    loadCollection(collection, callback) {
-        var self = this,
-            jsList = (collection.js) ? collection.js : [],
-            cssList = (collection.css) ? collection.css : [],
-            imgList = (collection.img) ? collection.img : [];
+    async loadCollection(collection = {}) {
+        const jsList  = (collection.js  ?? []).filter(src  => !document.querySelector(`head script[src="${htmlEscape(src)}"]`));
+        const cssList = (collection.css ?? []).filter(href => !document.querySelector(`head link[href="${htmlEscape(href)}"]`));
+        const imgList = collection.img ?? [];
 
-        jsList = assGrep(jsList, function(item) {
-            return !document.querySelector('head script[src="'+item+'"]');
-        })
-
-        cssList = assGrep(cssList, function(item) {
-            return !document.querySelector('head link[href="'+item+'"]');
-        })
-
-        var cssCounter = 0,
-            jsLoaded = false,
-            imgLoaded = false;
-
-        if (jsList.length === 0 && cssList.length === 0 && imgList.length === 0) {
-            callback && callback();
+        if (!jsList.length && !cssList.length && !imgList.length) {
             return;
         }
 
-        this.loadJavaScript(jsList, function() {
-            jsLoaded = true;
-            checkLoaded();
-        });
-
-        cssList.forEach(function(source) {
-            self.loadStyleSheet(source, function() {
-                cssCounter++;
-                checkLoaded();
-            });
-        });
-
-        this.loadImage(imgList, function() {
-            imgLoaded = true;
-            checkLoaded();
-        });
-
-        function checkLoaded() {
-            if (!imgLoaded) {
-                return false
-            }
-
-            if (!jsLoaded) {
-                return false
-            }
-
-            if (cssCounter < cssList.length) {
-                return false
-            }
-
-            callback && callback();
-        }
+        await Promise.all([
+            this.loadJavaScript(jsList),
+            Promise.all(cssList.map(h => this.loadStyleSheet(h))),
+            this.loadImages(imgList)
+        ]);
     }
 
-    // Loads StyleSheet files
-    loadStyleSheet(source, callback) {
-        var cssElement = document.createElement('link');
-        cssElement.setAttribute('rel', 'stylesheet');
-        cssElement.setAttribute('type', 'text/css');
-        cssElement.setAttribute('href', source);
-        cssElement.addEventListener('load', callback, false);
-
-        if (typeof cssElement != 'undefined') {
-            document.getElementsByTagName('head')[0].appendChild(cssElement);
-        }
-
-        return cssElement;
-    }
-
-    // Loads JavaScript files in sequence
-    loadJavaScript(sources, callback) {
-        if (sources.length <= 0) {
-            return callback();
-        }
-
-        var self = this,
-            source = sources.shift(),
-            jsElement = document.createElement('script');
-
-        jsElement.setAttribute('type', 'text/javascript');
-        jsElement.setAttribute('src', source);
-        jsElement.addEventListener('load', function() {
-            self.loadJavaScript(sources, callback);
-        }, false);
-
-        if (typeof jsElement != 'undefined') {
-            document.getElementsByTagName('head')[0].appendChild(jsElement);
-        }
-    }
-
-    // Loads Image files
-    loadImage(sources, callback) {
-        if (sources.length <= 0) {
-            return callback();
-        }
-
-        var loaded = 0;
-        sources.forEach(function(source) {
-            var img = new Image()
-            img.onload = function() {
-                if (++loaded == sources.length && callback) {
-                    callback();
-                }
-            }
-            img.src = source;
+    loadStyleSheet(href) {
+        return new Promise((resolve, reject) => {
+            const el = document.createElement('link');
+            el.rel = 'stylesheet';
+            el.type = 'text/css';
+            el.href = href;
+            el.onload = () => resolve(el);
+            el.onerror = () => reject(new Error(`Failed to load CSS: ${href}`));
+            document.head.appendChild(el);
         });
+    }
+
+    // Sequential loading (safer for dependencies)
+    loadJavaScript(list) {
+        return list.reduce((p, src) => {
+            return p.then(() => new Promise((resolve, reject) => {
+                const el = document.createElement('script');
+                el.type = 'text/javascript';
+                el.src = src;
+                el.onload = () => resolve(el);
+                el.onerror = () => reject(new Error(`Failed to load JS: ${src}`));
+                document.head.appendChild(el);
+            }));
+        }, Promise.resolve());
+    }
+
+    loadImages(list) {
+        if (!list.length) return Promise.resolve();
+        return Promise.all(list.map(src => new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(src);
+            img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+            img.src = src;
+        })));
     }
 }
 
-function assGrep(items, callback) {
-    var filtered = [],
-        len = items.length,
-        i = 0;
-
-    for (i; i < len; i++) {
-        if (callback(items[i])) {
-            filtered.push(items[i]);
-        }
-    }
-
-    return filtered;
+// Minimal escaping for querySelector
+function htmlEscape(value) {
+    return String(value).replace(/"/g, '\\"');
 }

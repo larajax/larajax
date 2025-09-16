@@ -6,6 +6,7 @@ import { HttpRequest, SystemStatusCode } from "../util/http-request";
 import { Deferred } from "../util/deferred";
 import { ProgressBar } from "../extras/progress-bar";
 import { dispatch } from "../util";
+import { cancellablePromise } from "../util/promise";
 
 export class Request
 {
@@ -59,9 +60,7 @@ export class Request
         // Send request
         this.sendInternal();
 
-        return this.options.async
-            ? this.wrapInAsyncPromise(this.promise)
-            : this.promise;
+        return this.promise;
     }
 
     sendInternal() {
@@ -90,26 +89,30 @@ export class Request
         // Prepare request
         const { url, headers, method, responseType } = Options.fetch(this.handler, this.options);
         this.request = new HttpRequest(this, url, { method, headers, responseType, data, trackAbort: true });
-        this.promise = new Deferred({ delegate: this.request });
+        this.promise = cancellablePromise();
         this.isRedirect = this.options.redirect && this.options.redirect.length > 0;
 
         // Lifecycle events
         this.notifyApplicationBeforeSend();
         this.notifyApplicationAjaxPromise();
+
         this.promise
-            .fail((data, responseCode, xhr) => {
+            .onCancel(() => {
+                this.request.abort();
+            })
+            .then(data => {
                 if (!this.isRedirect) {
-                    this.notifyApplicationAjaxFail(data, responseCode, xhr);
+                    this.notifyApplicationAjaxDone(data, data.$status, data.$xhr);
+                    this.notifyApplicationAjaxAlways(data, data.$status, data.$xhr);
                 }
             })
-            .done((data, responseCode, xhr) => {
+            .catch(data => {
                 if (!this.isRedirect) {
-                    this.notifyApplicationAjaxDone(data, responseCode, xhr);
+                    this.notifyApplicationAjaxFail(data, data.$status, data.$xhr);
+                    this.notifyApplicationAjaxAlways(data, data.$status, data.$xhr);
                 }
             })
-            .always((data, responseCode, xhr) => {
-                this.notifyApplicationAjaxAlways(data, responseCode, xhr);
-            });
+        ;
 
         this.request.send();
     }
@@ -252,14 +255,13 @@ export class Request
     }
 
     requestProgressed(progress) {
-        this.promise.notify(progress);
     }
 
     async requestCompletedWithResponse(response, statusCode) {
         const data = decorateResponse(response, statusCode, this.request.xhr);
         await this.actions.invoke('success', [data, statusCode, this.request.xhr]);
         await this.actions.invoke('complete', [data, statusCode, this.request.xhr]);
-        this.promise.resolve(data, statusCode, this.request.xhr);
+        this.promise.resolve(data);
     }
 
     async requestFailedWithStatusCode(statusCode, response) {
@@ -272,7 +274,7 @@ export class Request
         }
 
         await this.actions.invoke('complete', [data, statusCode, this.request.xhr]);
-        this.promise.reject(data, statusCode, this.request.xhr);
+        this.promise.reject(data);
     }
 
     requestFinished() {
@@ -375,28 +377,10 @@ export class Request
             }
         }
     }
-
-    wrapInAsyncPromise(requestPromise) {
-        return new Promise(function (resolve, reject, onCancel) {
-            requestPromise
-                .fail(function(data) {
-                    reject(data);
-                })
-                .done(function(data) {
-                    resolve(data);
-                });
-
-            if (onCancel) {
-                onCancel(function() {
-                    requestPromise.abort();
-                });
-            }
-        });
-    }
 }
 
 function decorateResponse(response, statusCode, xhr) {
-    if (response.constructor !== {}.constructor || !response.__ajax) {
+    if (!response || response.constructor !== {}.constructor || !response.__ajax) {
         return response;
     }
 

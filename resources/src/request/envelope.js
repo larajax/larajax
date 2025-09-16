@@ -59,8 +59,8 @@ export class Envelope
 
     getBrowserEvents() {
         return this.getOps('dispatch')
-            .map(({ selector = null, event, detail }) => ({
-                selector, event, detail
+            .map(({ selector = null, event, detail, async }) => ({
+                selector, event, detail, async
             }));
     }
 

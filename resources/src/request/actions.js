@@ -1,8 +1,8 @@
 import { AssetManager } from "./asset-manager";
-import { Envelope } from "./envelope";
 import { DomPatcher, resolveSelectorResponse } from "./dom-patcher";
 import { Deferred } from "../util/deferred";
 import { getReferrerUrl } from "../util/referrer";
+import { decoratePromiseProxy } from "../util/promise";
 
 export class Actions
 {
@@ -14,9 +14,9 @@ export class Actions
 
         // Allow override to call parent logic
         this.context.start = this.start.bind(this);
-        this.context.success = this.success.bind(this);
-        this.context.error = this.error.bind(this);
-        this.context.complete = this.complete.bind(this);
+        this.context.success = decoratePromiseProxy(this.success, this);
+        this.context.error = decoratePromiseProxy(this.error, this);
+        this.context.complete = decoratePromiseProxy(this.complete, this);
         this.context.cancel = this.cancel.bind(this);
     }
 
@@ -51,21 +51,19 @@ export class Actions
     }
 
     async success(data, responseCode, xhr) {
-        let updatePromise = new Deferred;
-
         // Halt here if beforeUpdate() or data-request-before-update returns false
         if (this.invoke('beforeUpdate', [data, responseCode, xhr]) === false) {
-            return updatePromise;
+            return;
         }
 
         // Halt here if the error function returns false
         if (this.invokeFunc('beforeUpdateFunc', data) === false) {
-            return updatePromise;
+            return;
         }
 
         // Trigger 'ajaxBeforeUpdate' on the form, halt if event.preventDefault() is called
         if (!this.delegate.applicationAllowsUpdate(data, responseCode, xhr)) {
-            return updatePromise;
+            return;
         }
 
         // Download file and continue with success response here since data is unusable
@@ -73,23 +71,21 @@ export class Actions
             this.invoke('handleFileDownload', [data, xhr]);
             this.delegate.notifyApplicationRequestSuccess(data, responseCode, xhr);
             this.invokeFunc('successFunc', data);
-            return updatePromise;
+            return;
         }
 
         // Proceed with the update process
-        updatePromise = this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
+        if (!data.$env?.isFatal()) {
+            await this.invoke('handleUpdateOperations', [data, responseCode, xhr]);
+            await this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
+        }
 
-        updatePromise.done(() => {
-            this.delegate.notifyApplicationRequestSuccess(data, responseCode, xhr);
-            this.invokeFunc('successFunc', data);
-        });
-
-        return updatePromise;
+        this.delegate.notifyApplicationRequestSuccess(data, responseCode, xhr);
+        this.invokeFunc('successFunc', data);
     }
 
     async error(data, responseCode, xhr) {
-        let updatePromise = new Deferred,
-            errorMsg = data.$env?.getMessage();
+        let errorMsg = data.$env?.getMessage();
 
         if (window.ocUnloading !== undefined && window.ocUnloading) {
             return updatePromise;
@@ -98,8 +94,9 @@ export class Actions
         // Disable redirects
         this.delegate.toggleRedirect(false);
 
-        if (!data.$env?.isFatal() && data) {
-            updatePromise = this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
+        if (!data.$env?.isFatal()) {
+            await this.invoke('handleUpdateOperations', [data, responseCode, xhr]);
+            await this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
         }
         // Standard error with standard response text
         else {
@@ -115,30 +112,24 @@ export class Actions
             else {
                 errorMsg = data;
             }
-
-            updatePromise.resolve();
         }
 
-        updatePromise.done(() => {
-            // Capture the error message on the node
-            if (this.el !== document) {
-                this.el.setAttribute('data-error-message', errorMsg);
-            }
+        // Capture the error message on the node
+        if (this.el !== document) {
+            this.el.setAttribute('data-error-message', errorMsg);
+        }
 
-            // Trigger 'ajaxError' on the form, halt if event.preventDefault() is called
-            if (!this.delegate.applicationAllowsError(data, responseCode, xhr)) {
-                return;
-            }
+        // Trigger 'ajaxError' on the form, halt if event.preventDefault() is called
+        if (!this.delegate.applicationAllowsError(data, responseCode, xhr)) {
+            return;
+        }
 
-            // Halt here if the error function returns false
-            if (this.invokeFunc('errorFunc', data) === false) {
-                return;
-            }
+        // Halt here if the error function returns false
+        if (this.invokeFunc('errorFunc', data) === false) {
+            return;
+        }
 
-            this.invoke('handleErrorMessage', [errorMsg]);
-        });
-
-        return updatePromise;
+        this.invoke('handleErrorMessage', [errorMsg]);
     }
 
     async complete(data, responseCode, xhr) {
@@ -157,14 +148,22 @@ export class Actions
 
     // Custom function, requests confirmation from the user
     handleConfirmMessage(message) {
-        const promise = new Deferred;
-        promise.done(() => {
-            this.delegate.sendInternal();
-        }).fail(() => {
-            this.invoke('cancel', []);
+        let resolveFn, rejectFn;
+
+        const promise = new Promise((resolve, reject) => {
+            resolveFn = resolve;
+            rejectFn = reject;
         });
 
-        const event = this.delegate.notifyApplicationConfirmMessage(message, promise);
+        promise
+            .then(() => { this.delegate.sendInternal(); })
+            .catch(() => { this.invoke('cancel', []); });
+
+        const event = this.delegate.notifyApplicationConfirmMessage(message, {
+            resolve: resolveFn,
+            reject: rejectFn
+        });
+
         if (event.defaultPrevented) {
             return false;
         }
@@ -241,24 +240,44 @@ export class Actions
         }
     }
 
-    // Custom function, handle a browser event coming from the server
-    handleBrowserEvents(events) {
-        if (!events || !events.length) {
+    // Custom function: handle browser events coming from the server
+    async handleBrowserEvents(events = []) {
+        if (!events.length) {
             return false;
         }
 
         let defaultPrevented = false;
 
-        events.forEach(dispatched => {
-            const event = this.delegate.notifyApplicationCustomEvent(dispatched.event, {
-                ...(dispatched.detail || {}),
-                context: this.context
-            });
+        for (const dispatched of events) {
+            const isAsync = dispatched?.async === true;
 
-            if (event.defaultPrevented) {
-                defaultPrevented = true;
+            if (isAsync) {
+                // Wait until the listener calls resolve() or reject()
+                await new Promise((outerResolve, outerReject) => {
+                    let settled = false;
+                    const resolve = (v) => { if (!settled) { settled = true; outerResolve(v); } };
+                    const reject = (e) => { if (!settled) { settled = true; outerReject(e); } };
+
+                    const event = this.delegate.notifyApplicationCustomEvent(dispatched.event, {
+                        ...(dispatched.detail || {}),
+                        context: this.context,
+                        promise: { resolve, reject }
+                    });
+
+                    if (event?.defaultPrevented) {
+                        defaultPrevented = true;
+                    }
+                });
             }
-        });
+            else {
+                const event = this.delegate.notifyApplicationCustomEvent(dispatched.event, {
+                    ...(dispatched.detail || {}),
+                    context: this.context
+                });
+
+                if (event?.defaultPrevented) defaultPrevented = true;
+            }
+        }
 
         return defaultPrevented;
     }
@@ -309,33 +328,33 @@ export class Actions
         }
     }
 
-    // Custom function, handle any application specific response values
-    // Using a promissory object here in case injected assets need time to load
-    handleUpdateResponse(data, responseCode, xhr) {
-        var updateOptions = this.options.update || {},
-            updatePromise = new Deferred;
+    async handleUpdateResponse(data, responseCode, xhr) {
+        if (!data.$env) {
+            return;
+        }
 
-        // Update partials and finish request
-        updatePromise.done(() => {
-            const domPatcher = new DomPatcher(data.$env, updateOptions, {
+        const
+            updateOptions = this.options.update || {},
+            domPatcher = new DomPatcher(data.$env, updateOptions, {
                 partial: this.options.partial,
                 partialEl: this.delegate.partialEl
             });
 
-            domPatcher.afterUpdate((el) => {
-                this.delegate.notifyApplicationAjaxUpdate(el, data, responseCode, xhr);
-            });
-
-            domPatcher.apply();
-
-            // Wait for the dom patcher to finish rendering from partial updates
-            setTimeout(() => {
-                this.delegate.notifyApplicationUpdateComplete(data, responseCode, xhr);
-                this.invoke('afterUpdate', [data, responseCode, xhr]);
-                this.invokeFunc('afterUpdateFunc', data);
-            }, 0);
+        domPatcher.afterUpdate((el) => {
+            this.delegate.notifyApplicationAjaxUpdate(el, data, responseCode, xhr);
         });
 
+        domPatcher.apply();
+
+        // Wait for the dom patcher to finish rendering from partial updates
+        setTimeout(() => {
+            this.delegate.notifyApplicationUpdateComplete(data, responseCode, xhr);
+            this.invoke('afterUpdate', [data, responseCode, xhr]);
+            this.invokeFunc('afterUpdateFunc', data);
+        }, 0);
+    }
+
+    async handleUpdateOperations(data, responseCode, xhr) {
         // Dispatch flash messages
         const flashMessages = this.delegate.options.flash ? data.$env?.getFlash() : null;
         if (flashMessages) {
@@ -346,8 +365,8 @@ export class Actions
 
         // Handle browser events
         const browserEvents = data.$env?.getBrowserEvents();
-        if (browserEvents && this.invoke('handleBrowserEvents', [browserEvents])) {
-            return updatePromise;
+        if (browserEvents && await this.invoke('handleBrowserEvents', [browserEvents])) {
+            return;
         }
 
         // Handle redirect
@@ -369,15 +388,8 @@ export class Actions
         // Handle asset injection
         const loadAssets = data.$env?.getAssets();
         if (loadAssets) {
-            AssetManager.load(loadAssets, function() {
-                return updatePromise.resolve();
-            });
+            await AssetManager.load(loadAssets);
         }
-        else {
-            updatePromise.resolve();
-        }
-
-        return updatePromise;
     }
 
     // Custom function, download a file response from the server
