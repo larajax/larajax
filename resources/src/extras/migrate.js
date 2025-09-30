@@ -6,7 +6,7 @@ export class Migrate
             $.oc = {};
         }
 
-        $.oc.flashMsg = window.oc.flashMsg;
-        $.oc.stripeLoadIndicator = window.oc.progressBar;
+        $.oc.flashMsg = window.jax.flashMsg;
+        $.oc.stripeLoadIndicator = window.jax.progressBar;
     }
 }

@@ -1,22 +1,22 @@
 import namespace from "./namespace";
 export default namespace;
 
-if (!window.oc) {
-    window.oc = {};
+if (!window.jax) {
+    window.jax = {};
 }
 
-if (!window.oc.AjaxExtras) {
+if (!window.jax.AjaxExtras) {
     // Namespace
-    window.oc.AjaxExtras = namespace;
+    window.jax.AjaxExtras = namespace;
 
     // Flash messages
-    window.oc.flashMsg = namespace.flashMsg;
+    window.jax.flashMsg = namespace.flashMsg;
 
     // Progress bar
-    window.oc.progressBar = namespace.progressBar;
+    window.jax.progressBar = namespace.progressBar;
 
     // Attach loader
-    window.oc.attachLoader = namespace.attachLoader;
+    window.jax.attachLoader = namespace.attachLoader;
 
     // Boot controller
     if (!isAMD() && !isCommonJS()) {

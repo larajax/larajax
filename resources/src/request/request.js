@@ -3,7 +3,6 @@ import { Options } from "./options";
 import { Actions } from "./actions";
 import { Data } from "./data";
 import { HttpRequest, SystemStatusCode } from "../util/http-request";
-import { Deferred } from "../util/deferred";
 import { ProgressBar } from "../extras/progress-bar";
 import { dispatch } from "../util";
 import { cancellablePromise } from "../util/promise";

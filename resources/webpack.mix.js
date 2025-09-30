@@ -18,14 +18,14 @@ mix
         manifest: false,
     });
 
-mix.js('resources/src/framework-bundle.js', 'resources/dist/framework-bundle.min.js');
-mix.js('resources/src/framework-extras.js', 'resources/dist/framework-extras.min.js');
-mix.js('resources/src/framework-turbo.js', 'resources/dist/framework-turbo.min.js');
-mix.js('resources/src/framework.js', 'resources/dist/framework.min.js');
+mix.js('src/framework-bundle.js', 'dist/framework-bundle.min.js');
+mix.js('src/framework-extras.js', 'dist/framework-extras.min.js');
+mix.js('src/framework-turbo.js', 'dist/framework-turbo.min.js');
+mix.js('src/framework.js', 'dist/framework.min.js');
 
 if (!mix.inProduction()) {
-    mix.js('resources/src/framework-bundle.js', 'resources/dist/framework-bundle.js');
-    mix.js('resources/src/framework-extras.js', 'resources/dist/framework-extras.js');
-    mix.js('resources/src/framework-turbo.js', 'resources/dist/framework-turbo.js');
-    mix.js('resources/src/framework.js', 'resources/dist/framework.js');
+    mix.js('src/framework-bundle.js', 'dist/framework-bundle.js');
+    mix.js('src/framework-extras.js', 'dist/framework-extras.js');
+    mix.js('src/framework-turbo.js', 'dist/framework-turbo.js');
+    mix.js('src/framework.js', 'dist/framework.js');
 }
