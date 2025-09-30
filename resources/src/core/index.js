@@ -3,34 +3,34 @@ import { waitFor, domReady } from "../util/wait";
 import namespace from "./namespace";
 export default namespace;
 
-if (!window.oc) {
-    window.oc = {};
+if (!window.jax) {
+    window.jax = {};
 }
 
-if (!window.oc.AjaxFramework) {
+if (!window.jax.AjaxFramework) {
     // Namespace
-    window.oc.AjaxFramework = namespace;
+    window.jax.AjaxFramework = namespace;
 
     // Request on element with builder
-    window.oc.request = namespace.requestElement;
+    window.jax.request = namespace.requestElement;
 
     // JSON parser
-    window.oc.parseJSON = namespace.parseJSON;
+    window.jax.parseJSON = namespace.parseJSON;
 
     // Form serializer
-    window.oc.serializeJSON = namespace.serializeJSON;
+    window.jax.serializeJSON = namespace.serializeJSON;
 
     // Selector events
-    window.oc.Events = Events;
+    window.jax.Events = Events;
 
     // Wait for a variable to exist
-    window.oc.waitFor = waitFor;
+    window.jax.waitFor = waitFor;
 
     // Fallback for turbo
-    window.oc.pageReady = domReady;
+    window.jax.pageReady = domReady;
 
     // Fallback for turbo
-    window.oc.visit = (url) => window.location.assign(url);
+    window.jax.visit = (url) => window.location.assign(url);
 
     // Boot controller
     if (!isAMD() && !isCommonJS()) {

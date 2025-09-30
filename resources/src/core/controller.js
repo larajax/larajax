@@ -144,6 +144,6 @@ export class Controller
     }
 
     documentOnBeforeUnload(event) {
-        window.ocUnloading = true;
+        window.jaxUnloading = true;
     }
 }

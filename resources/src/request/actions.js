@@ -1,6 +1,5 @@
 import { AssetManager } from "./asset-manager";
 import { DomPatcher, resolveSelectorResponse } from "./dom-patcher";
-import { Deferred } from "../util/deferred";
 import { getReferrerUrl } from "../util/referrer";
 import { decoratePromiseProxy } from "../util/promise";
 
@@ -87,7 +86,7 @@ export class Actions
     async error(data, responseCode, xhr) {
         let errorMsg = data.$env?.getMessage();
 
-        if (window.ocUnloading !== undefined && window.ocUnloading) {
+        if (window.jaxUnloading !== undefined && window.jaxUnloading) {
             return updatePromise;
         }
 
@@ -293,8 +292,8 @@ export class Actions
             href = getReferrerUrl() || href;
         }
 
-        if (oc.useTurbo && oc.useTurbo()) {
-            oc.visit(href);
+        if (jax.useTurbo && jax.useTurbo()) {
+            jax.visit(href);
         }
         else {
             location.assign(href);
@@ -441,8 +440,8 @@ export class Actions
             newUrl += '?' + queryStr.replaceAll('%5B%5D=', '[]=')
         }
 
-        if (oc.useTurbo && oc.useTurbo()) {
-            oc.visit(newUrl, { action: 'swap', scroll: false });
+        if (jax.useTurbo && jax.useTurbo()) {
+            jax.visit(newUrl, { action: 'swap', scroll: false });
         }
         else {
             history.replaceState(null, '', newUrl);

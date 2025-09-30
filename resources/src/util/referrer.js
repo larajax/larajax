@@ -2,8 +2,8 @@
  * getReferrerUrl returns the last visited URL
  */
 export function getReferrerUrl() {
-    const url = oc.useTurbo && oc.useTurbo()
-        ? oc.AjaxTurbo.controller.getLastVisitUrl()
+    const url = jax.useTurbo && jax.useTurbo()
+        ? jax.AjaxTurbo.controller.getLastVisitUrl()
         : getReferrerFromSameOrigin();
 
 

@@ -1,22 +1,22 @@
 import namespace from "./namespace";
 export default namespace;
 
-if (!window.oc) {
-    window.oc = {};
+if (!window.jax) {
+    window.jax = {};
 }
 
-if (!window.oc.AjaxTurbo) {
+if (!window.jax.AjaxTurbo) {
     // Namespace
-    window.oc.AjaxTurbo = namespace;
+    window.jax.AjaxTurbo = namespace;
 
     // Visit helper
-    window.oc.visit = namespace.visit;
+    window.jax.visit = namespace.visit;
 
     // Enabled helper
-    window.oc.useTurbo = namespace.isEnabled;
+    window.jax.useTurbo = namespace.isEnabled;
 
     // Page ready helper
-    window.oc.pageReady = namespace.pageReady;
+    window.jax.pageReady = namespace.pageReady;
 
     // Boot controller
     if (!isAMD() && !isCommonJS()) {

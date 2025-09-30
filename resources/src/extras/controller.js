@@ -100,8 +100,8 @@ export class Controller
             }
 
             event.preventDefault();
-            if (oc.useTurbo && oc.useTurbo()) {
-                oc.visit(href);
+            if (jax.useTurbo && jax.useTurbo()) {
+                jax.visit(href);
             }
             else {
                 location.assign(href);

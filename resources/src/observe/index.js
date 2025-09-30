@@ -2,27 +2,27 @@ import { ControlBase } from "./control-base";
 import namespace from "./namespace";
 export default namespace;
 
-if (!window.oc) {
-    window.oc = {};
+if (!window.jax) {
+    window.jax = {};
 }
 
-if (!window.oc.AjaxObserve) {
+if (!window.jax.AjaxObserve) {
     // Namespace
-    window.oc.AjaxObserve = namespace;
+    window.jax.AjaxObserve = namespace;
 
     // Control API
-    window.oc.registerControl = namespace.registerControl;
+    window.jax.registerControl = namespace.registerControl;
 
-    window.oc.importControl = namespace.importControl;
+    window.jax.importControl = namespace.importControl;
 
-    window.oc.observeControl = namespace.observeControl;
+    window.jax.observeControl = namespace.observeControl;
 
-    window.oc.fetchControl = namespace.fetchControl;
+    window.jax.fetchControl = namespace.fetchControl;
 
-    window.oc.fetchControls = namespace.fetchControls;
+    window.jax.fetchControls = namespace.fetchControls;
 
     // Control base class
-    window.oc.ControlBase = ControlBase;
+    window.jax.ControlBase = ControlBase;
 
     // Boot controller
     if (!isAMD() && !isCommonJS()) {
