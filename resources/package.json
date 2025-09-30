@@ -1,0 +1,32 @@
+{
+    "name": "larajax",
+    "version": "1.0.0",
+    "description": "AJAX Framework for October CMS",
+    "main": "resources/src/index.js",
+    "devDependencies": {
+        "laravel-mix": "^6.0.44"
+    },
+    "scripts": {
+        "dev": "mix",
+        "watch": "mix watch",
+        "build": "mix --production",
+        "pub": "npm run dev && npm run build",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/larajax/larajax.git"
+    },
+    "keywords": [
+        "larajax",
+        "laravel ajax",
+        "ajax",
+        "framework"
+    ],
+    "author": "October CMS (Responsiv Pty Ltd)",
+    "license": "SEE LICENSE IN LICENSE.md",
+    "bugs": {
+        "url": "https://github.com/larajax/larajax/issues"
+    },
+    "homepage": "https://github.com/larajax/larajax#readme"
+}
