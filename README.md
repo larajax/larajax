@@ -1,11 +1,12 @@
-# Larajax
+# Larajax - AJAX for Laravel
 
 <p align="center">
     <img src="https://github.com/larajax/larajax/blob/main/logo.png?raw=true" alt="Larajax" width="25%" height="25%" />
 </p>
 
 AJAX for Laravel, without the boilerplate.
-Extracted from the October CMS AJAX framework and maintained by the October CMS team.
+
+Extracted from the [October CMS AJAX framework](https://docs.octobercms.com/4.x/ajax/introduction.html) and maintained by the [October CMS team](https://github.com/octobercms/).
 
 ## Features
 
