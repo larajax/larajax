@@ -99,4 +99,8 @@ export class Envelope
         const op = this.getOps('redirect')[0];
         return op?.url || this.redirect || null;
     }
+
+    getReload() {
+        return this.getOps('reload')[0] || null;
+    }
 }

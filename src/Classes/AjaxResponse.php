@@ -21,6 +21,7 @@ class AjaxResponse implements Responsable
     const OP_PATCH_DOM = 'patchDom';
     const OP_PARTIAL = 'partial';
     const OP_REDIRECT = 'redirect';
+    const OP_RELOAD = 'reload';
     const OP_DISPATCH = 'dispatch';
     const OP_LOAD_ASSETS = 'loadAssets';
 
@@ -235,6 +236,18 @@ class AjaxResponse implements Responsable
         ];
 
         $this->ajaxData['content']['redirect'] = $location;
+
+        return $this;
+    }
+
+    /**
+     * redirect adds a browser redirect to the AJAX response.
+     */
+    public function reload(): static
+    {
+        $this->ajaxData['content']['ops'][] = [
+            'op' => self::OP_RELOAD,
+        ];
 
         return $this;
     }
