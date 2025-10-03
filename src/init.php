@@ -3,6 +3,6 @@
 if (!function_exists('ajax')) {
     function ajax()
     {
-        return new \October\Ajax\Classes\AjaxResponse;
+        return app(Larajax\Classes\AjaxResponse::class);
     }
 }

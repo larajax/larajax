@@ -20,7 +20,7 @@ export class Actions
     }
 
     // Options can override all public methods in this class
-    invoke(method, args) {
+    invoke(method, args = []) {
         if (this.options[method]) {
             return this.options[method].apply(this.context, args);
         }
@@ -300,6 +300,11 @@ export class Actions
         }
     }
 
+    // Custom function, reload the browser
+    handleReloadResponse() {
+        location.reload();
+    }
+
     // Mark known elements as being updated
     markAsUpdating(isUpdating) {
         var updateOptions = this.options.update || {};
@@ -376,6 +381,10 @@ export class Actions
 
         if (this.delegate.isRedirect) {
             this.invoke('handleRedirectResponse', [this.delegate.options.redirect]);
+        }
+
+        if (data.$env?.getReload()) {
+            this.invoke('handleReloadResponse');
         }
 
         // Handle validation
