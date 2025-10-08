@@ -103,12 +103,14 @@ export class Request
                 if (!this.isRedirect) {
                     this.notifyApplicationAjaxDone(data, data.$status, data.$xhr);
                     this.notifyApplicationAjaxAlways(data, data.$status, data.$xhr);
+                    this.notifyApplicationSendComplete(data, data.$status, data.$xhr);
                 }
             })
             .catch(data => {
                 if (!this.isRedirect) {
                     this.notifyApplicationAjaxFail(data, data.$status, data.$xhr);
                     this.notifyApplicationAjaxAlways(data, data.$status, data.$xhr);
+                    this.notifyApplicationSendComplete(data, data.$status, data.$xhr);
                 }
             })
         ;
@@ -188,6 +190,7 @@ export class Request
         return dispatch('ajax:before-redirect', { target: this.el });
     }
 
+    // Container-based events
     notifyApplicationBeforeRequest() {
         return dispatch('ajax:before-request', { target: this.triggerEl, detail: { context: this.context } });
     }
@@ -223,6 +226,10 @@ export class Request
 
     notifyApplicationUpdateComplete(data, responseCode, xhr) {
         return dispatch('ajax:update-complete', { target: window, detail: { context: this.context, data, responseCode, xhr } });
+    }
+
+    notifyApplicationSendComplete(data, responseCode, xhr) {
+        return dispatch('ajax:send-complete', { target: window, detail: { context: this.context, data, responseCode, xhr } });
     }
 
     notifyApplicationFieldInvalid(element, fieldName, errorMsg, isFirst) {
@@ -297,7 +304,7 @@ export class Request
             this.formEl = this.el && this.el !== document ? this.el.closest('form') : null;
         }
 
-        this.triggerEl = this.formEl ? this.formEl : this.el;
+        this.triggerEl = this.formEl || this.el.closest('[data-request-scope]') || document.body;
 
         this.partialEl = this.el && this.el !== document ? this.el.closest('[data-ajax-partial]') : null;
 
