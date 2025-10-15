@@ -8,7 +8,7 @@ namespace Larajax\Contracts;
 interface ViewComponentInterface
 {
     /**
-     * newInstance returns a new instance of an AJAX component
+     * createIn returns a new instance of an AJAX component
      */
     public static function createIn(AjaxControllerInterface $controller, array $config): ViewComponentInterface;
 

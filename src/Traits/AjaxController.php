@@ -43,9 +43,17 @@ trait AjaxController
     /**
      * addComponentInstance
      */
-    public function addComponentInstance(ViewComponentInterface $instance)
+    public function addComponentInstance(string $alias, ViewComponentInterface $instance)
     {
-        $this->componentContainer->bind($instance->alias, $instance);
+        if (!$instance->controller) {
+            $instance->controller = $this;
+        }
+
+        if (!$instance->alias) {
+            $instance->alias = $alias;
+        }
+
+        $this->componentContainer->bind($alias, $instance);
     }
 
     /**

@@ -10,7 +10,7 @@ interface AjaxControllerInterface
     /**
      * addComponentInstance registers a component instance with the controller
      */
-    public function addComponentInstance(ViewComponentInterface $instance);
+    public function addComponentInstance(string $alias, ViewComponentInterface $instance);
 
     /**
      * getComponentInstance returns a component instance attached to the controller

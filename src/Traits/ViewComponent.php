@@ -52,6 +52,6 @@ trait ViewComponent
             throw new Exception("Component [".static::class."] has no controller specified.");
         }
 
-        $this->controller->addComponentInstance($this);
+        $this->controller->addComponentInstance($this->alias, $this);
     }
 }
