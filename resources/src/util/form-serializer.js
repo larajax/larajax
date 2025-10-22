@@ -61,7 +61,12 @@ export class FormSerializer
                     currentTarget[prop] = [];
                 }
 
-                currentTarget[prop].push(fieldValue);
+                if (Array.isArray(fieldValue)) {
+                    currentTarget[prop].push(...fieldValue);
+                }
+                else {
+                    currentTarget[prop].push(fieldValue);
+                }
             }
             else {
                 if (currentTarget[prop] === undefined || currentTarget[prop].constructor !== {}.constructor) {
