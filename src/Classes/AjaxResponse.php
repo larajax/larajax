@@ -112,6 +112,17 @@ class AjaxResponse implements Responsable
     }
 
     /**
+     * registerGlobalComponent register a stateless component class globally
+     */
+    public static function registerGlobalComponent($className)
+    {
+        ComponentContainer::$globalComponents = array_unique([
+            ...ComponentContainer::$globalComponents,
+            $className
+        ]);
+    }
+
+    /**
      * Handles a generic exception including validation errors.
      */
     public function exception($exception)

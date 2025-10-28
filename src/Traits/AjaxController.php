@@ -26,6 +26,10 @@ trait AjaxController
         if ($this->hasAjaxHandler()) {
             return $this->runAjaxAction($method, array_values($parameters));
         }
+
+        if (method_exists($this, 'beforeDisplay')) {
+            $this->beforeDisplay();
+        }
     }
 
     /**

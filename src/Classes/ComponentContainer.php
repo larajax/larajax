@@ -13,11 +13,16 @@ class ComponentContainer
     protected $controller;
 
     /**
-     * @var array
+     * @var array componentData
      */
     protected $componentData = [
         'components' => []
     ];
+
+    /**
+     * @var array globalComponents
+     */
+    public static $globalComponents = [];
 
     /**
      * __construct
@@ -33,13 +38,15 @@ class ComponentContainer
     public function register()
     {
         if (
-            !property_exists($this->controller, 'components') ||
-            !is_array($this->controller->components)
+            property_exists($this->controller, 'components') &&
+            is_array($this->controller->components)
         ) {
-            return;
+            foreach ($this->controller->components as $componentClass) {
+                $componentClass::createIn($this->controller)->bindToController();
+            }
         }
 
-        foreach ($this->controller->components as $componentClass) {
+        foreach (static::$globalComponents as $componentClass) {
             $componentClass::createIn($this->controller)->bindToController();
         }
     }
