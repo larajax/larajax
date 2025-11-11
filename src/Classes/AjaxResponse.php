@@ -152,7 +152,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds an error message to the AJAX response.
+     * error adds an error message to the AJAX response.
      */
     public function error(string $message, $status = 400): static
     {
@@ -168,7 +168,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds an error message to the AJAX response.
+     * fatal adds a fatal error message to the AJAX response.
      */
     public function fatal(string $message, $status = 500): static
     {
@@ -184,7 +184,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds a single invalid form field to the AJAX response.
+     * invalidField adds a single invalid form field to the AJAX response.
      */
     public function invalidField($field, $messages)
     {
@@ -192,7 +192,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds invalid form fields to the AJAX response.
+     * invalidFields adds invalid form fields to the AJAX response.
      *
      * The array format for `errors`:
      *
@@ -252,7 +252,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * redirect adds a browser redirect to the AJAX response.
+     * redirect adds a browser refresh command to the response
      */
     public function reload(): static
     {
@@ -290,7 +290,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds DOM updates to the AJAX response.
+     * update adds DOM updates to the AJAX response.
      *
      * The array format for `updates`:
      *
@@ -331,7 +331,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds browser event dispatch with the AJAX response.
+     * browserEvent adds browser event dispatch with the AJAX response.
      */
     public function browserEvent(string $name, $data)
     {
@@ -351,7 +351,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds a JavaScript file or files to load with the output.
+     * js adds a JavaScript file or files to load with the output.
      */
     public function js(string|array $paths): static
     {
@@ -359,7 +359,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds a StyleSheet file or files to load with the output.
+     * css adds a StyleSheet file or files to load with the output.
      */
     public function css(string|array $paths): static
     {
@@ -367,7 +367,7 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * Adds an image file or files to load with the output.
+     * img adds an image file or files to load with the output.
      */
     public function img(string|array $paths): static
     {
