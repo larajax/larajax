@@ -34,9 +34,9 @@ export class Actions
 
     // Options can also specify a non-interference "func" method, typically
     // used by eval-based data attributes that takes minimal arguments
-    invokeFunc(method, data) {
+    invokeFunc(method, data = null) {
         if (this.options[method]) {
-            return this.options[method](this.el, data);
+            return this.options[method](this.el, this.context, data);
         }
     }
 

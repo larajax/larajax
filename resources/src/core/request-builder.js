@@ -12,6 +12,7 @@ export class RequestBuilder
             return Request.send(handler, this.options);
         }
 
+        this.assignAsEval('beforeSendFunc', 'requestBeforeSend');
         this.assignAsEval('beforeUpdateFunc', 'requestBeforeUpdate');
         this.assignAsEval('afterUpdateFunc', 'requestAfterUpdate');
         this.assignAsEval('successFunc', 'requestSuccess');
@@ -101,8 +102,8 @@ export class RequestBuilder
             return;
         }
 
-        this.options[optionName] = function(element, data) {
-            return (new Function('data', attrVal)).apply(element, [data]);
+        this.options[optionName] = function(element, context, data) {
+            return (new Function('context', 'data', attrVal)).apply(element, [context, data]);
         };
     }
 

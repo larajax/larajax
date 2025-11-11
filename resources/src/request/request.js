@@ -47,6 +47,10 @@ export class Request
 
         // Prepare actions
         this.actions = new Actions(this, this.context, this.options);
+        if (this.actions.invokeFunc('beforeSendFunc') === false) {
+            return;
+        }
+
         if (!this.validateClientSideForm() || !this.applicationAllowsRequest()) {
             return;
         }
