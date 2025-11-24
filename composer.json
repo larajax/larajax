@@ -1,8 +1,7 @@
 {
-    "name": "october/ajax",
+    "name": "larajax/larajax",
     "description": "Laravel implementation of the October AJAX server logic.",
     "type": "library",
-    "license": "proprietary",
     "authors": [
         {
             "name": "Samuel Georges",
@@ -17,7 +16,7 @@
             "src/init.php"
         ],
         "psr-4": {
-            "October\\Ajax\\": "src/"
+            "Larajax\\": "src/"
         }
     },
     "minimum-stability": "stable",

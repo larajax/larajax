@@ -1,9 +1,9 @@
 <?php
 
-namespace October\Ajax\Traits;
+namespace Larajax\Traits;
 
-use October\Ajax\Classes\ComponentContainer;
-use October\Ajax\Contracts\ViewComponentInterface;
+use Larajax\Classes\ComponentContainer;
+use Larajax\Contracts\ViewComponentInterface;
 use Exception;
 
 /**

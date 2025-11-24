@@ -1,45 +1,15 @@
-# October AJAX Framework
+# Larajax
 
-This repository contains the AJAX framework of October CMS. If you want to build a website using October CMS, visit the main [October CMS repository](http://github.com/octobercms/october).
+<p align="center">
+    <img src="https://github.com/larajax/larajax/blob/main/logo.png?raw=true" alt="Larajax" width="25%" height="25%" />
+</p>
 
-## Installation outside October CMS
+AJAX for Laravel, without the boilerplate.
+Extracted from the October CMS AJAX framework and maintained by the October CMS team.
 
-Your application can use the `octobercms` npm package to install the AJAX Framework as a module for build tools like webpack.
+## Features
 
-1. Add the `octobercms` package to your application.
-
-```js
-npm install --save octobercms
-```
-
-2. Require and start the Framework in your JavaScript bundle.
-
-```js
-import oc from 'octobercms';
-
-// Make an AJAX request
-oc.ajax('onSomething', { data: someVar });
-
-// Serialize an element with the request
-oc.request('.some-element', 'onSomething', { data: someVar });
-```
-
-### jQuery Adapter
-
-If jQuery is found, the traditional API can also be used.
-
-```js
-// AJAX request with jQuery
-$.request('onSomething', { data: someVar });
-
-// Serialized request with jQuery
-$('.some-element').request('onSomething', { data: someVar });
-```
-
-## Documentation
-
-[Read the complete documentation](https://docs.octobercms.com/3.x/cms/ajax/introduction.html) on the October CMS website.
-
-## License
-
-The October CMS platform is licensed software, see [End User License Agreement](./LICENSE.md) (EULA) for more details.
+- Define handlers directly in your controllers (`onSave`, `onSendMessage`).
+- Update partials of your views without writing custom JS.
+- Works seamlessly with Laravel Blade and October CMS.
+- Built-in CSRF, validation, and error handling.

@@ -1,6 +1,6 @@
 {
-    "name": "octobercms",
-    "version": "2.0.0",
+    "name": "larajax",
+    "version": "1.0.0",
     "description": "AJAX Framework for October CMS",
     "main": "resources/src/index.js",
     "devDependencies": {
@@ -15,19 +15,18 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/octobercms/ajax.git"
+        "url": "git+https://github.com/larajax/larajax.git"
     },
     "keywords": [
-        "octobercms",
-        "october cms",
-        "october",
+        "larajax",
+        "laravel ajax",
         "ajax",
         "framework"
     ],
     "author": "October CMS (Responsiv Pty Ltd)",
     "license": "SEE LICENSE IN LICENSE.md",
     "bugs": {
-        "url": "https://github.com/octobercms/ajax/issues"
+        "url": "https://github.com/larajax/larajax/issues"
     },
-    "homepage": "https://github.com/octobercms/ajax#readme"
+    "homepage": "https://github.com/larajax/larajax#readme"
 }

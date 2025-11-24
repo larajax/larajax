@@ -1,6 +1,6 @@
 <?php
 
-namespace October\Ajax\Contracts;
+namespace Larajax\Contracts;
 
 /**
  * AjaxControllerInterface

@@ -1,10 +1,10 @@
 <?php
 
-namespace October\Ajax\Traits;
+namespace Larajax\Traits;
 
 use Exception;
-use October\Ajax\Contracts\AjaxControllerInterface;
-use October\Ajax\Contracts\ViewComponentInterface;
+use Larajax\Contracts\AjaxControllerInterface;
+use Larajax\Contracts\ViewComponentInterface;
 
 /**
  * ViewComponent is a trait that can be implemented in a component...

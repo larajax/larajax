@@ -1,6 +1,6 @@
 <?php
 
-namespace October\Ajax\Classes;
+namespace Larajax\Classes;
 
 use Stringable;
 use JsonSerializable;
