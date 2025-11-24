@@ -308,7 +308,7 @@ export class Request
             this.formEl = this.el && this.el !== document ? this.el.closest('form') : null;
         }
 
-        this.triggerEl = this.formEl || this.el.closest('[data-request-scope]') || document.body;
+        this.triggerEl = this.formEl || (this.el !== document && this.el.closest('[data-request-scope]')) || document.body;
 
         this.partialEl = this.el && this.el !== document ? this.el.closest('[data-ajax-partial]') : null;
 

@@ -1,9 +1,9 @@
 /**
  * --------------------------------------------------------------------------
- * October CMS: Frontend JavaScript Framework
- * https://octobercms.com
+ * Larajax: Frontend JavaScript Framework
+ * https://larajax.org
  * --------------------------------------------------------------------------
- * Copyright 2013-2023 Alexey Bobkov, Samuel Georges
+ * Copyright 2025 Responsiv Pty. Ltd.
  * --------------------------------------------------------------------------
  */
 

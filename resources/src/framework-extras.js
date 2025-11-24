@@ -1,7 +1,7 @@
 /**
  * --------------------------------------------------------------------------
  * Larajax: Frontend JavaScript Framework
- * https://docs.octobercms.com/4.x/ajax/introduction.html
+ * https://larajax.org
  * --------------------------------------------------------------------------
  * Copyright 2025 Responsiv Pty. Ltd.
  * --------------------------------------------------------------------------
