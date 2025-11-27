@@ -12,7 +12,7 @@ use Exception;
 trait AjaxController
 {
     /**
-     * @var componentContainer instance
+     * @var ComponentContainer componentContainer instance
      */
     protected $componentContainer;
 
@@ -25,10 +25,6 @@ trait AjaxController
 
         if ($this->hasAjaxHandler()) {
             return $this->runAjaxAction($method, array_values($parameters));
-        }
-
-        if (method_exists($this, 'beforeDisplay')) {
-            $this->beforeDisplay();
         }
     }
 
