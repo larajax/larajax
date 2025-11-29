@@ -64,6 +64,7 @@ class AjaxResponse implements Responsable
             $this->ajaxData['headers']
         );
     }
+
     /**
      * wrap arbitrary handler output into an AjaxResponse.
      * - Associative arrays merge into `data`
@@ -120,6 +121,14 @@ class AjaxResponse implements Responsable
             ...ComponentContainer::$globalComponents,
             $className
         ]);
+    }
+
+    /**
+     * request returns an AJAX Request object
+     */
+    public function request()
+    {
+        return (new AjaxRequest)->fromRequest(request());
     }
 
     /**
