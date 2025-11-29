@@ -23,9 +23,9 @@ trait ViewComponent
     public $alias;
 
     /**
-     * @var \Backend\Classes\Controller|null controller for the backend.
+     * @var AjaxControllerInterface|null controller for the backend.
      */
-    protected $controller;
+    public $controller;
 
     /**
      * createIn controller

@@ -85,7 +85,9 @@ class AjaxResponse implements Responsable
 
         if ($result instanceof Arrayable) {
             $arr = $result->toArray();
-            return AjaxHelpers::isAssoc($arr) ? $response->data($arr) : $response->data(['result' => $arr]);
+            return AjaxHelpers::isAssoc($arr)
+                ? $response->data($arr)
+                : $response->data(['result' => $arr]);
         }
 
         if ($result instanceof JsonSerializable) {
@@ -97,7 +99,7 @@ class AjaxResponse implements Responsable
 
         if (is_array($result)) {
             return AjaxHelpers::isAssoc($result)
-                ? $response->data($result)
+                ? $response->dataWithUpdateSelectors($result)
                 : $response->data(['result' => $result]);
         }
 
@@ -355,6 +357,42 @@ class AjaxResponse implements Responsable
         }
 
         return $this;
+    }
+
+    /**
+     * dataWithUpdateSelectors converts partial update shortcuts to updates
+     */
+    public function dataWithUpdateSelectors(array $dataAndUpdates): static
+    {
+        $data = $dataAndUpdates;
+        $updates = [];
+        $selectors = ['#', '.', '@', '^', '!', '='];
+        $modifiers = [
+            '@' => 'append',
+            '^' => 'prepend',
+            '!' => 'replace',
+            '=' => 'innerHTML'
+        ];
+
+        foreach ($data as $target => $content) {
+            foreach ($selectors as $selector) {
+                if (str_starts_with($target, $selector)) {
+                    unset($data[$target]);
+
+                    if (isset($modifiers[$selector])) {
+                        $target = substr($target, 1);
+                    }
+
+                    $updates[] = [
+                        'target' => $target,
+                        'content' => $content,
+                        'swap' => $modifiers[$selector] ?? 'innerHTML'
+                    ];
+                }
+            }
+        }
+
+        return $this->data($data)->update($updates);
     }
 
     /**
