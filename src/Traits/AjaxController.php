@@ -2,6 +2,9 @@
 
 namespace Larajax\Traits;
 
+use Larajax\Exceptions\HandlerNotFound;
+use Larajax\Exceptions\HandlerNameInvalid;
+use Larajax\Classes\AjaxHelpers;
 use Larajax\Classes\ComponentContainer;
 use Larajax\Contracts\ViewComponentInterface;
 use Exception;
@@ -12,6 +15,11 @@ use Exception;
 trait AjaxController
 {
     /**
+     * @var AjaxRequest ajaxRequest
+     */
+    protected $ajaxRequest;
+
+    /**
      * @var ComponentContainer componentContainer instance
      */
     protected $componentContainer;
@@ -21,9 +29,9 @@ trait AjaxController
      */
     protected function callAjaxAction(string $method, array $parameters)
     {
-        $this->initComponents();
+        $this->initAjaxRequest();
 
-        if ($this->hasAjaxHandler()) {
+        if ($this->ajaxRequest->hasAjaxHandler()) {
             return $this->runAjaxAction($method, array_values($parameters));
         }
     }
@@ -31,8 +39,10 @@ trait AjaxController
     /**
      * initComponents adds component objects to the controller
      */
-    protected function initComponents()
+    protected function initAjaxRequest()
     {
+        $this->ajaxRequest = ajax()->request();
+
         $this->componentContainer = new ComponentContainer($this);
 
         $this->componentContainer->register();
@@ -69,18 +79,20 @@ trait AjaxController
      */
     protected function runAjaxAction($action, $parameters)
     {
-        $handler = $this->getAjaxHandlerName();
+        $handler = $this->ajaxRequest->handler;
         if (!$handler) {
             return;
         }
 
         if (!preg_match('/^on[A-Z][a-zA-Z]*$/', $handler)) {
-            return ajax()->error("[{$handler}] is an invalid AJAX handler name");
+            // return ajax()->error("[{$handler}] is an invalid AJAX handler name");
+            throw new HandlerNameInvalid;
         }
 
-        $method = $this->getAjaxHandlerMethod($handler, $action);
+        $method = $this->getAjaxHandlerMethod($action);
         if (!$method) {
-            return ajax()->error("AJAX handler [{$handler}] not found", 404);
+            // return ajax()->error("AJAX handler [{$handler}] not found", 404);
+            throw new HandlerNotFound;
         }
 
         try {
@@ -92,31 +104,28 @@ trait AjaxController
     }
 
     /**
-     * hasAjaxHandler returns true if the AJAX lifecycle should run
-     */
-    protected function hasAjaxHandler(): bool
-    {
-        return (bool) $this->getAjaxHandlerName();
-    }
-
-    /**
-     * getAjaxHandlerName fetches the handler name from the request headers
-     */
-    protected function getAjaxHandlerName()
-    {
-        return preg_replace('/[^a-zA-Z0-9]/', '', (string) request()->header('X-AJAX-HANDLER'));
-    }
-
-    /**
      * getAjaxHandlerMethod returns the AJAX handler method to call in the implementing class
      */
-    protected function getAjaxHandlerMethod($handler, $action)
+    protected function getAjaxHandlerMethod($action)
     {
-        if (method_exists($this, $actionHandler = "{$action}_{$handler}")) {
+        $handler = $this->ajaxRequest->handler;
+        if (!$handler) {
+            return null;
+        }
+
+        if ($component = $this->ajaxRequest->component) {
+            if ($componentObj = $this->componentContainer->make($component)) {
+                return [$componentObj, $handler];
+            }
+
+            return null;
+        }
+
+        if (AjaxHelpers::methodExists($this, $actionHandler = "{$action}_{$handler}")) {
             return [$this, $actionHandler];
         }
 
-        if (method_exists($this, $handler)) {
+        if (AjaxHelpers::methodExists($this, $handler)) {
             return [$this, $handler];
         }
 

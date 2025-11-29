@@ -90,7 +90,7 @@ class ComponentContainer
     public function getAjaxHandlerMethod($handler)
     {
         foreach ($this->componentData['components'] as $component) {
-            if (method_exists($component, $handler)) {
+            if (AjaxHelpers::methodExists($component, $handler)) {
                 return [$component, $handler];
             }
         }

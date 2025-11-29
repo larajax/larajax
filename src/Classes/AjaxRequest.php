@@ -2,14 +2,8 @@
 
 namespace Larajax\Classes;
 
-use Stringable;
-use JsonSerializable;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Support\Renderable;
-use Illuminate\Contracts\Support\Responsable;
-
 /**
- * AjaxResponse class returned from ajax() call
+ * AjaxRequest class
  */
 class AjaxRequest
 {
@@ -19,14 +13,19 @@ class AjaxRequest
     const HEADER_PARTIALS = 'X-AJAX-PARTIALS';
 
     /**
-     * @var bool isAjax valid with a valid handler name
-     */
-    public $isAjax;
-
-    /**
      * @var string handler
      */
     public $handler;
+
+    /**
+     * @var string qualifiedHandler
+     */
+    public $qualifiedHandler;
+
+    /**
+     * @var string component
+     */
+    public $component;
 
     /**
      * @var bool wantsFlash
@@ -57,7 +56,9 @@ class AjaxRequest
     {
         $this->request = $request;
 
-        $this->handler = $this->getAjaxHandlerName();
+        [$this->component, $this->handler] = $this->getAjaxHandlerName();
+
+        $this->qualifiedHandler = $this->component ? "{$this->component}::{$this->handler}" : $this->handler;
 
         $this->partial = $this->getAjaxPartialName();
 
@@ -65,21 +66,40 @@ class AjaxRequest
 
         $this->wantsFlash = (bool) $this->request->header(self::HEADER_FLASH);
 
-        $this->isAjax = $this->isAjaxValid();
-
         return $this;
+    }
+
+    /**
+     * hasAjaxHandler
+     */
+    public function hasAjaxHandler(): bool
+    {
+        if (!$this->request->ajax() || $this->request->method() !== 'POST') {
+            return false;
+        }
+
+        if (!preg_match('/^(?:\w+\:{2})?on[A-Z]{1}[\w+]*$/', $this->handler)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
      * getAjaxHandlerName fetches the handler name from the request headers
      */
-    protected function getAjaxHandlerName()
+    protected function getAjaxHandlerName(): array
     {
-        return preg_replace(
-            '/[^a-zA-Z0-9]/',
-            '',
-            (string) $this->request->header(self::HEADER_HANDLER)
-        );
+        $handler = $this->request->header(self::HEADER_HANDLER);
+        if (!$handler || !is_string($handler)) {
+            return ['', ''];
+        }
+
+        if (strpos($handler, '::')) {
+            return explode('::', $handler, 2);
+        }
+
+        return ['', $handler];
     }
 
     /**
@@ -87,10 +107,6 @@ class AjaxRequest
      */
     protected function getAjaxPartialName()
     {
-        if (!$this->request->ajax() || $this->request->method() !== 'POST') {
-            return null;
-        }
-
         if ($ajaxPartial = $this->request->header(self::HEADER_PARTIAL)) {
             return $ajaxPartial;
         }
@@ -110,17 +126,5 @@ class AjaxRequest
         }
 
         return [];
-    }
-
-    /**
-     * isAjaxValid
-     */
-    protected function isAjaxValid(): bool
-    {
-        if (!preg_match('/^on[A-Z][a-zA-Z]*$/', $this->handler)) {
-            return false;
-        }
-
-        return true;
     }
 }

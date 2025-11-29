@@ -84,18 +84,18 @@ class AjaxResponse implements Responsable
 
         if ($result instanceof Arrayable) {
             $arr = $result->toArray();
-            return self::isAssoc($arr) ? $response->data($arr) : $response->data(['result' => $arr]);
+            return AjaxHelpers::isAssoc($arr) ? $response->data($arr) : $response->data(['result' => $arr]);
         }
 
         if ($result instanceof JsonSerializable) {
             $json = $result->jsonSerialize();
-            return is_array($json) && self::isAssoc($json)
+            return is_array($json) && AjaxHelpers::isAssoc($json)
                 ? $response->data($json)
                 : $response->data(['result' => $json]);
         }
 
         if (is_array($result)) {
-            return self::isAssoc($result)
+            return AjaxHelpers::isAssoc($result)
                 ? $response->data($result)
                 : $response->data(['result' => $result]);
         }
@@ -428,13 +428,5 @@ class AjaxResponse implements Responsable
         }
 
         return is_string($content) ? $content : '';
-    }
-
-    /**
-     * isAssoc returns true if an array is associative
-     */
-    protected static function isAssoc(array $arr): bool
-    {
-        return array_keys($arr) !== range(0, count($arr) - 1);
     }
 }
