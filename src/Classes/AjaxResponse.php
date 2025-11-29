@@ -7,6 +7,7 @@ use JsonSerializable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Contracts\Support\Responsable;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * AjaxResponse class returned from ajax() call
@@ -108,6 +109,10 @@ class AjaxResponse implements Responsable
             return $response->data(['result' => (string) $result]);
         }
 
+        if ($result instanceof RedirectResponse) {
+            return $response->redirect($result);
+        }
+
         // Abort wrapping for custom responses, such as a file downloads
         return $result;
     }
@@ -132,9 +137,22 @@ class AjaxResponse implements Responsable
     }
 
     /**
+     * headers
+     */
+    public function headers(array $headers): static
+    {
+        $this->ajaxData['headers'] = [
+            ...$headers,
+            ...($this->ajaxData['headers'] ?? [])
+        ];
+
+        return $this;
+    }
+
+    /**
      * Handles a generic exception including validation errors.
      */
-    public function exception($exception)
+    public function exception($exception): static
     {
         if ($exception instanceof \Illuminate\Validation\ValidationException) {
             return $this->invalidFields($exception->errors());
@@ -246,7 +264,7 @@ class AjaxResponse implements Responsable
      */
     public function redirect($location): static
     {
-        if ($location instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
+        if ($location instanceof RedirectResponse) {
             $location = $location->getTargetUrl();
         }
 
@@ -390,6 +408,10 @@ class AjaxResponse implements Responsable
      */
     public function asset(string $type, string|array $paths): static
     {
+        if (!$paths) {
+            return $this;
+        }
+
         $this->ajaxData['content']['ops'][] = [
             'op' => self::OP_LOAD_ASSETS,
             'type' => $type,

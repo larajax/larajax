@@ -87,7 +87,7 @@ export class Actions
         let errorMsg = data.$env?.getMessage();
 
         if (window.jaxUnloading !== undefined && window.jaxUnloading) {
-            return updatePromise;
+            return;
         }
 
         // Disable redirects

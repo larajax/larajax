@@ -3,7 +3,7 @@ export function decoratePromiseProxy(fn, ctx = null) {
     return (...args) => {
         // Ensure sync throws also become rejections
         const p = Promise.resolve().then(() => fn.apply(ctx, args));
-        return makeDeferredCompat(p);
+        return decoratePromise(p);
     };
 }
 

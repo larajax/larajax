@@ -38,9 +38,9 @@ class AjaxRequest
     public $partial;
 
     /**
-     * @var array partials requested
+     * @var array partialList requested
      */
-    public $partials;
+    public $partialList;
 
     /**
      * @var \Illuminate\Http\Request request base instance
@@ -62,7 +62,7 @@ class AjaxRequest
 
         $this->partial = $this->getAjaxPartialName();
 
-        $this->partials = $this->getAjaxHandlerPartialList();
+        $this->partialList = $this->getAjaxHandlerPartialList();
 
         $this->wantsFlash = (bool) $this->request->header(self::HEADER_FLASH);
 
@@ -96,10 +96,11 @@ class AjaxRequest
         }
 
         if (strpos($handler, '::')) {
-            return explode('::', $handler, 2);
+            $parts = explode('::', $handler, 2);
+            return [trim($parts[0]), trim($parts[1])];
         }
 
-        return ['', $handler];
+        return ['', trim($handler)];
     }
 
     /**

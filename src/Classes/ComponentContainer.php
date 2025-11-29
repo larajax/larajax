@@ -95,4 +95,14 @@ class ComponentContainer
             }
         }
     }
+
+    /**
+     * __get to dynamically access components.
+     * @param  string  $key
+     * @return mixed
+     */
+    public function __get($key)
+    {
+        return $this->make($key);
+    }
 }
