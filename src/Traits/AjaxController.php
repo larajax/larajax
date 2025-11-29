@@ -97,12 +97,12 @@ trait AjaxController
         }
 
         if (!preg_match('/^on[A-Z][a-zA-Z]*$/', $handler)) {
-            throw new HandlerNameInvalid;
+            throw new HandlerNameInvalid("[{$handler}] is an invalid AJAX handler name");
         }
 
         $method = $this->getAjaxHandlerMethod($action);
         if (!$method) {
-            throw new HandlerNotFound;
+            throw new HandlerNotFound("AJAX handler [{$handler}] not found");
         }
 
         $call = method_exists($this, 'makeCallForAjax')
@@ -139,7 +139,7 @@ trait AjaxController
                 return [$componentObj, $handler];
             }
 
-            throw new ComponentNotFound;
+            throw new ComponentNotFound("Component name [{$component}] not found");
         }
 
         if (AjaxHelpers::methodExists($this, $actionHandler = "{$action}_{$handler}")) {
