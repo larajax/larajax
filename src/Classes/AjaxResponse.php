@@ -46,6 +46,11 @@ class AjaxResponse implements Responsable
     ];
 
     /**
+     * @var mixed responseOverride from a forced response.
+     */
+    protected $responseOverride = null;
+
+    /**
      * Create an HTTP response that represents the object.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -53,6 +58,10 @@ class AjaxResponse implements Responsable
      */
     public function toResponse($request)
     {
+        if ($this->responseOverride !== null) {
+            return $this->responseOverride;
+        }
+
         $env = $this->ajaxData['content'];
         $data = $env['data'];
         unset($env['data']);
@@ -78,6 +87,10 @@ class AjaxResponse implements Responsable
         }
 
         $response = ajax();
+
+        if ($result instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
+            return $response->force($result);
+        }
 
         if ($result instanceof Renderable) {
             return $response->data(['result' => $result->render()]);
@@ -116,7 +129,7 @@ class AjaxResponse implements Responsable
         }
 
         // Abort wrapping for custom responses, such as a file downloads
-        return $result;
+        return $response->force($result);
     }
 
     /**
@@ -156,6 +169,10 @@ class AjaxResponse implements Responsable
      */
     public function exception($exception): static
     {
+        if ($exception instanceof \Larajax\Contracts\AjaxExceptionInterface) {
+            return $this->error()->data($exception->toAjaxData());
+        }
+
         if ($exception instanceof \Illuminate\Validation\ValidationException) {
             return $this->invalidFields($exception->errors());
         }
@@ -183,7 +200,7 @@ class AjaxResponse implements Responsable
     /**
      * error adds an error message to the AJAX response.
      */
-    public function error(string $message, $status = 400): static
+    public function error(string $message = '', $status = 400): static
     {
         $this->ajaxData['content']['ok'] = false;
 
@@ -455,6 +472,16 @@ class AjaxResponse implements Responsable
             'type' => $type,
             'urls' => $paths,
         ];
+
+        return $this;
+    }
+
+    /**
+     * force bypasses an AJAX response entirely for a custom one
+     */
+    public function force($response): static
+    {
+        $this->responseOverride = $response;
 
         return $this;
     }
