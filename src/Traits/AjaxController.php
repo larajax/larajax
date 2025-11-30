@@ -9,7 +9,6 @@ use Larajax\Classes\AjaxHelpers;
 use Larajax\Classes\AjaxResponse;
 use Larajax\Classes\ComponentContainer;
 use Larajax\Contracts\ViewComponentInterface;
-use Exception;
 
 /**
  * AjaxController is a trait that can be implemented in a controller class.

@@ -57,7 +57,9 @@ class ComponentContainer
     public function boot()
     {
         foreach ($this->componentData['components'] as $componentObj) {
-            $componentObj->init();
+            if (method_exists($componentObj, 'boot')) {
+                $componentObj->boot();
+            }
         }
     }
 
