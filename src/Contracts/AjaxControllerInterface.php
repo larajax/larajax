@@ -15,5 +15,5 @@ interface AjaxControllerInterface
     /**
      * getComponentInstance returns a component instance attached to the controller
      */
-    public function getComponentInstance(string $alias): ViewComponentInterface;
+    public function getComponentInstance(string $alias): ?ViewComponentInterface;
 }

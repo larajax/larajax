@@ -13,7 +13,7 @@ use Larajax\Contracts\ViewComponentInterface;
 trait ViewComponent
 {
     /**
-     * @var object config supplied.
+     * @var array config supplied.
      */
     public $config;
 
@@ -23,7 +23,7 @@ trait ViewComponent
     public $alias;
 
     /**
-     * @var AjaxControllerInterface|null controller for the backend.
+     * @var AjaxControllerInterface|null controller object.
      */
     public $controller;
 

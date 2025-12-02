@@ -16,7 +16,7 @@ use Larajax\Contracts\ViewComponentInterface;
 trait AjaxController
 {
     /**
-     * @var AjaxRequest ajaxRequest
+     * @var \Larajax\Classes\AjaxRequest ajaxRequest
      */
     protected $ajaxRequest;
 
@@ -80,7 +80,7 @@ trait AjaxController
     /**
      * getComponentInstance returns an instance of a component based on its alias
      */
-    public function getComponentInstance(string $alias): ViewComponentInterface
+    public function getComponentInstance(string $alias): ?ViewComponentInterface
     {
         return $this->componentContainer->make($alias);
     }
@@ -109,9 +109,6 @@ trait AjaxController
             : $method(...$parameters);
 
         $response = ajax()::wrap($call);
-        if (!$response instanceof AjaxResponse) {
-            return $response;
-        }
 
         // Include partials
         if ($this->ajaxRequest->partialList && method_exists($this, 'makePartialForAjax')) {
