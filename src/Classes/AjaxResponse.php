@@ -88,7 +88,11 @@ class AjaxResponse implements Responsable
 
         $response = ajax();
 
-        if ($result instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
+        if ($result instanceof RedirectResponse) {
+            return $response->redirect($result);
+        }
+
+        if ($result instanceof \Symfony\Component\HttpFoundation\Response) {
             return $response->force($result);
         }
 
@@ -122,10 +126,6 @@ class AjaxResponse implements Responsable
 
         if ($result instanceof Stringable) {
             return $response->data(['result' => (string) $result]);
-        }
-
-        if ($result instanceof RedirectResponse) {
-            return $response->redirect($result);
         }
 
         // Abort wrapping for custom responses, such as a file downloads
