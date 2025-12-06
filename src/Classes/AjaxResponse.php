@@ -3,9 +3,6 @@
 namespace Larajax\Classes;
 
 use Stringable;
-use JsonSerializable;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Contracts\Support\Responsable;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
@@ -14,6 +11,8 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
  */
 class AjaxResponse implements Responsable
 {
+    use \Larajax\Classes\AjaxResponse\HasOverrides;
+
     const SEVERITY_INFO = 'info';
     const SEVERITY_ERROR = 'error';
     const SEVERITY_FATAL = 'fatal';
@@ -76,266 +75,6 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * wrap arbitrary handler output into an AjaxResponse.
-     * - Associative arrays merge into `data`
-     * - Everything else lands in `data['result']`
-     */
-    public static function wrap($result): static
-    {
-        if ($result instanceof self) {
-            return $result;
-        }
-
-        $response = ajax();
-
-        if ($result instanceof RedirectResponse) {
-            return $response->redirect($result);
-        }
-
-        if ($result instanceof \Symfony\Component\HttpFoundation\Response) {
-            return $response->force($result);
-        }
-
-        if ($result instanceof Renderable) {
-            return $response->data(['result' => $result->render()]);
-        }
-
-        if ($result instanceof Arrayable) {
-            $arr = $result->toArray();
-            return AjaxHelpers::isAssoc($arr)
-                ? $response->data($arr)
-                : $response->data(['result' => $arr]);
-        }
-
-        if ($result instanceof JsonSerializable) {
-            $json = $result->jsonSerialize();
-            return is_array($json) && AjaxHelpers::isAssoc($json)
-                ? $response->data($json)
-                : $response->data(['result' => $json]);
-        }
-
-        if (is_array($result)) {
-            return AjaxHelpers::isAssoc($result)
-                ? $response->dataWithUpdateSelectors($result)
-                : $response->data(['result' => $result]);
-        }
-
-        if (is_string($result) || is_numeric($result) || is_bool($result) || is_null($result)) {
-            return $response->data(['result' => $result]);
-        }
-
-        if ($result instanceof Stringable) {
-            return $response->data(['result' => (string) $result]);
-        }
-
-        // Abort wrapping for custom responses, such as a file downloads
-        return $response->force($result);
-    }
-
-    /**
-     * registerGlobalComponent register a stateless component class globally
-     */
-    public static function registerGlobalComponent($className)
-    {
-        ComponentContainer::$globalComponents = array_unique([
-            ...ComponentContainer::$globalComponents,
-            $className
-        ]);
-    }
-
-    /**
-     * request returns an AJAX Request object
-     */
-    public function request()
-    {
-        return (new AjaxRequest)->fromRequest(request());
-    }
-
-    /**
-     * headers
-     */
-    public function headers(array $headers): static
-    {
-        $this->ajaxData['headers'] = [
-            ...$headers,
-            ...($this->ajaxData['headers'] ?? [])
-        ];
-
-        return $this;
-    }
-
-    /**
-     * Handles a generic exception including validation errors.
-     */
-    public function exception($exception): static
-    {
-        if ($exception instanceof \Larajax\Contracts\AjaxExceptionInterface) {
-            return $this->error()->data($exception->toAjaxData());
-        }
-
-        if ($exception instanceof \Illuminate\Validation\ValidationException) {
-            return $this->invalidFields($exception->errors());
-        }
-
-        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) {
-            return $this->error('Access Denied');
-        }
-
-        return $this->error($exception->getMessage());
-    }
-
-    /**
-     * data adds response data to the AJAX response.
-     */
-    public function data(array $data): static
-    {
-        $this->ajaxData['content']['data'] = array_replace(
-            $this->ajaxData['content']['data'] ?? [],
-            $data
-        );
-
-        return $this;
-    }
-
-    /**
-     * error adds an error message to the AJAX response.
-     */
-    public function error(string $message = '', $status = 400): static
-    {
-        $this->ajaxData['content']['ok'] = false;
-
-        $this->ajaxData['content']['severity'] = self::SEVERITY_ERROR;
-
-        $this->ajaxData['status'] = $status;
-
-        $this->ajaxData['content']['message'] = $message;
-
-        return $this;
-    }
-
-    /**
-     * fatal adds a fatal error message to the AJAX response.
-     */
-    public function fatal(string $message, $status = 500): static
-    {
-        $this->ajaxData['content']['ok'] = false;
-
-        $this->ajaxData['content']['severity'] = self::SEVERITY_FATAL;
-
-        $this->ajaxData['status'] = $status;
-
-        $this->ajaxData['content']['message'] = $message;
-
-        return $this;
-    }
-
-    /**
-     * invalidField adds a single invalid form field to the AJAX response.
-     */
-    public function invalidField($field, $messages)
-    {
-        return $this->invalidFields([$field => $messages]);
-    }
-
-    /**
-     * invalidFields adds invalid form fields to the AJAX response.
-     *
-     * The array format for `errors`:
-     *
-     *     fieldName => [message1, message2]
-     */
-    public function invalidFields(array $errors): static
-    {
-        $this->ajaxData['status'] = 422;
-
-        $this->ajaxData['content']['ok'] = false;
-
-        $this->ajaxData['content']['severity'] = self::SEVERITY_ERROR;
-
-        $invalid = (array) ($this->ajaxData['content']['invalid'] ?? []);
-
-        // Normalize to arrays
-        foreach ($errors as $field => $messages) {
-            $invalid[$field] = array_values((array) $messages);
-        }
-
-        $this->ajaxData['content']['invalid'] = $invalid;
-
-        return $this;
-    }
-
-    /**
-     * flash adds flash messages to the response
-     */
-    public function flash(string $level, string $text): static
-    {
-        $this->ajaxData['content']['ops'][] = [
-            'op' => self::OP_FLASH,
-            'level' => $level,
-            'text' => $text
-        ];
-
-        return $this;
-    }
-
-    /**
-     * redirect adds a browser redirect to the AJAX response.
-     */
-    public function redirect($location): static
-    {
-        if ($location instanceof RedirectResponse) {
-            $location = $location->getTargetUrl();
-        }
-
-        $this->ajaxData['content']['ops'][] = [
-            'op' => self::OP_REDIRECT,
-            'url' => $location
-        ];
-
-        $this->ajaxData['content']['redirect'] = $location;
-
-        return $this;
-    }
-
-    /**
-     * redirect adds a browser refresh command to the response
-     */
-    public function reload(): static
-    {
-        $this->ajaxData['content']['ops'][] = [
-            'op' => self::OP_RELOAD,
-        ];
-
-        return $this;
-    }
-
-    /**
-     * partial provides a requested partial response to the browser.
-     */
-    public function partial(string $name, $content): static
-    {
-        $this->ajaxData['content']['ops'][] = [
-            'op' => self::OP_PARTIAL,
-            'name' => $name,
-            'html' => $this->normalizeRenderable($content),
-        ];
-
-        return $this;
-    }
-
-    /**
-     * partials provides multiple requested partial responses to the browser.
-     */
-    public function partials(array $partials): static
-    {
-        foreach ($partials as $name => $content) {
-            $this->partial($name, $content);
-        }
-
-        return $this;
-    }
-
-    /**
      * update adds DOM updates to the AJAX response.
      *
      * The array format for `updates`:
@@ -377,57 +116,91 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * dataWithUpdateSelectors converts partial update shortcuts to updates
+     * data adds response data to the AJAX response.
      */
-    public function dataWithUpdateSelectors(array $dataAndUpdates): static
+    public function data(array $data): static
     {
-        $data = $dataAndUpdates;
-        $updates = [];
-        $selectors = ['#', '.', '@', '^', '!', '='];
-        $modifiers = [
-            '@' => 'append',
-            '^' => 'prepend',
-            '!' => 'replace',
-            '=' => 'innerHTML'
-        ];
-
-        foreach ($data as $target => $content) {
-            foreach ($selectors as $selector) {
-                if (str_starts_with($target, $selector)) {
-                    unset($data[$target]);
-
-                    if (isset($modifiers[$selector])) {
-                        $target = substr($target, 1);
-                    }
-
-                    $updates[] = [
-                        'target' => $target,
-                        'content' => $content,
-                        'swap' => $modifiers[$selector] ?? 'innerHTML'
-                    ];
-                }
-            }
-        }
-
-        return $this->data($data)->update($updates);
-    }
-
-    /**
-     * browserEvent adds browser event dispatch with the AJAX response.
-     */
-    public function browserEvent(string $name, $data)
-    {
-        $this->browserEventInternal($name, $data, false);
+        $this->ajaxData['content']['data'] = array_replace(
+            $this->ajaxData['content']['data'] ?? [],
+            $data
+        );
 
         return $this;
     }
 
     /**
-     * Adds asynchronous browser event dispatch with the AJAX response.
+     * redirect adds a browser redirect to the AJAX response.
      */
-    public function browserEventAsync(string $name, $data)
+    public function redirect($location): static
     {
-        $this->browserEventInternal($name, $data, true);
+        if ($location instanceof RedirectResponse) {
+            $location = $location->getTargetUrl();
+        }
+
+        $this->ajaxData['content']['ops'][] = [
+            'op' => self::OP_REDIRECT,
+            'url' => $location
+        ];
+
+        $this->ajaxData['content']['redirect'] = $location;
+
+        return $this;
+    }
+
+    /**
+     * redirect adds a browser refresh command to the response
+     */
+    public function reload(): static
+    {
+        $this->ajaxData['content']['ops'][] = [
+            'op' => self::OP_RELOAD,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * flash adds flash messages to the response
+     */
+    public function flash(string $level, string $text): static
+    {
+        $this->ajaxData['content']['ops'][] = [
+            'op' => self::OP_FLASH,
+            'level' => $level,
+            'text' => $text
+        ];
+
+        return $this;
+    }
+
+    /**
+     * error adds an error message to the AJAX response.
+     */
+    public function error(string $message = '', $status = 400): static
+    {
+        $this->ajaxData['content']['ok'] = false;
+
+        $this->ajaxData['content']['severity'] = self::SEVERITY_ERROR;
+
+        $this->ajaxData['status'] = $status;
+
+        $this->ajaxData['content']['message'] = $message;
+
+        return $this;
+    }
+
+    /**
+     * fatal adds a fatal error message to the AJAX response.
+     */
+    public function fatal(string $message, $status = 500): static
+    {
+        $this->ajaxData['content']['ok'] = false;
+
+        $this->ajaxData['content']['severity'] = self::SEVERITY_FATAL;
+
+        $this->ajaxData['status'] = $status;
+
+        $this->ajaxData['content']['message'] = $message;
 
         return $this;
     }
@@ -477,6 +250,107 @@ class AjaxResponse implements Responsable
     }
 
     /**
+     * browserEvent adds browser event dispatch with the AJAX response.
+     */
+    public function browserEvent(string $name, $data)
+    {
+        $this->browserEventInternal($name, $data, false);
+
+        return $this;
+    }
+
+    /**
+     * Adds asynchronous browser event dispatch with the AJAX response.
+     */
+    public function browserEventAsync(string $name, $data)
+    {
+        $this->browserEventInternal($name, $data, true);
+
+        return $this;
+    }
+
+    /**
+     * invalidFields adds invalid form fields to the AJAX response.
+     *
+     * The array format for `errors`:
+     *
+     *     fieldName => [message1, message2]
+     */
+    public function invalidFields(array $errors): static
+    {
+        $this->ajaxData['status'] = 422;
+
+        $this->ajaxData['content']['ok'] = false;
+
+        $this->ajaxData['content']['severity'] = self::SEVERITY_ERROR;
+
+        $invalid = (array) ($this->ajaxData['content']['invalid'] ?? []);
+
+        // Normalize to arrays
+        foreach ($errors as $field => $messages) {
+            $invalid[$field] = array_values((array) $messages);
+        }
+
+        $this->ajaxData['content']['invalid'] = $invalid;
+
+        return $this;
+    }
+
+    /**
+     * invalidField adds a single invalid form field to the AJAX response.
+     */
+    public function invalidField($field, $messages)
+    {
+        return $this->invalidFields([$field => $messages]);
+    }
+
+    /**
+     * partials provides multiple requested partial responses to the browser.
+     */
+    public function partials(array $partials): static
+    {
+        foreach ($partials as $name => $content) {
+            $this->partial($name, $content);
+        }
+
+        return $this;
+    }
+
+    /**
+     * partial provides a requested partial response to the browser.
+     */
+    public function partial(string $name, $content): static
+    {
+        $this->ajaxData['content']['ops'][] = [
+            'op' => self::OP_PARTIAL,
+            'name' => $name,
+            'html' => $this->normalizeRenderable($content),
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Handles a generic exception including validation errors.
+     */
+    public function exception($exception): static
+    {
+        if ($exception instanceof \Larajax\Contracts\AjaxExceptionInterface) {
+            return $this->error()->data($exception->toAjaxData());
+        }
+
+        if ($exception instanceof \Illuminate\Validation\ValidationException) {
+            return $this->invalidFields($exception->errors());
+        }
+
+        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) {
+            return $this->error('Access Denied');
+        }
+
+        return $this->error($exception->getMessage());
+    }
+
+    /**
      * force bypasses an AJAX response entirely for a custom one
      */
     public function force($response): static
@@ -484,6 +358,55 @@ class AjaxResponse implements Responsable
         $this->responseOverride = $response;
 
         return $this;
+    }
+
+    /**
+     * headers
+     */
+    public function headers(array $headers): static
+    {
+        $this->ajaxData['headers'] = [
+            ...$headers,
+            ...($this->ajaxData['headers'] ?? [])
+        ];
+
+        return $this;
+    }
+
+    /**
+     * dataWithUpdateSelectors converts partial update shortcuts to updates
+     */
+    public function dataWithUpdateSelectors(array $dataAndUpdates): static
+    {
+        $data = $dataAndUpdates;
+        $updates = [];
+        $selectors = ['#', '.', '@', '^', '!', '='];
+        $modifiers = [
+            '@' => 'append',
+            '^' => 'prepend',
+            '!' => 'replace',
+            '=' => 'innerHTML'
+        ];
+
+        foreach ($data as $target => $content) {
+            foreach ($selectors as $selector) {
+                if (str_starts_with($target, $selector)) {
+                    unset($data[$target]);
+
+                    if (isset($modifiers[$selector])) {
+                        $target = substr($target, 1);
+                    }
+
+                    $updates[] = [
+                        'target' => $target,
+                        'content' => $content,
+                        'swap' => $modifiers[$selector] ?? 'innerHTML'
+                    ];
+                }
+            }
+        }
+
+        return $this->data($data)->update($updates);
     }
 
     /**
