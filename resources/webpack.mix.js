@@ -19,13 +19,9 @@ mix
     });
 
 mix.js('src/framework-bundle.js', 'dist/framework-bundle.min.js');
-mix.js('src/framework-extras.js', 'dist/framework-extras.min.js');
-mix.js('src/framework-turbo.js', 'dist/framework-turbo.min.js');
 mix.js('src/framework.js', 'dist/framework.min.js');
 
 if (!mix.inProduction()) {
     mix.js('src/framework-bundle.js', 'dist/framework-bundle.js');
-    mix.js('src/framework-extras.js', 'dist/framework-extras.js');
-    mix.js('src/framework-turbo.js', 'dist/framework-turbo.js');
     mix.js('src/framework.js', 'dist/framework.js');
 }
