@@ -2,16 +2,19 @@
     "name": "larajax",
     "version": "1.0.0",
     "description": "Laravel implementation of the October AJAX server logic.",
+    "homepage": "https://github.com/larajax/larajax#readme",
     "main": "resources/src/index.js",
     "devDependencies": {
-        "laravel-mix": "^6.0.44"
+        "vite": "^4.5.14"
     },
     "scripts": {
-        "dev": "mix",
-        "watch": "mix watch",
-        "build": "mix --production",
-        "pub": "npm run dev && npm run build",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "dev:framework": "vite build --mode development --config vite.framework.config.js",
+        "dev:bundle": "vite build --mode development --config vite.bundle.config.js",
+        "build:framework": "vite build --mode production --config vite.framework.config.js",
+        "build:bundle": "vite build --mode production --config vite.bundle.config.js",
+        "dev": "npm run dev:framework && npm run dev:bundle",
+        "build": "npm run build:framework && npm run build:bundle",
+        "pub": "npm run dev && npm run build"
     },
     "repository": {
         "type": "git",
@@ -25,6 +28,5 @@
     ],
     "bugs": {
         "url": "https://github.com/larajax/larajax/issues"
-    },
-    "homepage": "https://github.com/larajax/larajax#readme"
+    }
 }
