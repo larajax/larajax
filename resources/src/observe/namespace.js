@@ -16,12 +16,12 @@ export default {
         return application.observe(element, id);
     },
 
-    fetchControl(element) {
-        return application.fetch(element);
+    fetchControl(element, identifier) {
+        return application.fetch(element, identifier);
     },
 
-    fetchControls(elements) {
-        return application.fetchAll(elements);
+    fetchControls(elements, identifier) {
+        return application.fetchAll(elements, identifier);
     },
 
     start() {

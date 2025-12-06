@@ -23,7 +23,7 @@ trait HasOverrides
      */
     public static function registerCustomResponse($className)
     {
-        \App::bind(\Larajax\Classes\AjaxResponse::class, $className);
+        app()->bind(\Larajax\Classes\AjaxResponse::class, $className);
     }
 
     /**
