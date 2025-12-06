@@ -114,6 +114,10 @@ export class Events
     static dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
         return dispatch(eventName, { target, detail, bubbles, cancelable });
     }
+
+    static trigger(target, eventName, { detail = {}, bubbles = true, cancelable = true } = {}) {
+        return dispatch(eventName, { target, detail, bubbles, cancelable });
+    }
 }
 
 /**

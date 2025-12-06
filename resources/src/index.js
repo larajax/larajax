@@ -15,31 +15,40 @@ import AjaxTurbo from "./turbo/namespace";
 import { ControlBase } from "./observe/control-base";
 import { AssetManager } from "./request/asset-manager";
 import { Events } from "./util/events";
-import { waitFor } from "./util/wait";
+import { waitFor, domReady } from "./util/wait";
 
 export default {
-    AjaxFramework,
     AjaxRequest,
-    AjaxExtras,
-    AjaxObserve,
-    AjaxTurbo,
-    ControlBase,
     AssetManager,
-    Events,
-    waitFor,
     ajax: AjaxRequest.send,
+
+    AjaxFramework,
+    Events,
     request: AjaxFramework.requestElement,
     parseJSON: AjaxFramework.parseJSON,
-    serializeJSON: AjaxFramework.serializeJSON,
+    values: AjaxFramework.serializeAsJSON,
+    pageReady: domReady,
+    waitFor,
+    dispatch: Events.dispatch,
+    trigger: Events.trigger,
+    on: Events.on,
+    off: Events.off,
+    one: Events.one,
+
+    AjaxExtras,
     flashMsg: AjaxExtras.flashMsg,
     progressBar: AjaxExtras.progressBar,
     attachLoader: AjaxExtras.attachLoader,
-    useTurbo: AjaxTurbo.isEnabled,
-    pageReady: AjaxTurbo.pageReady,
-    visit: AjaxTurbo.visit,
+
+    AjaxObserve,
+    ControlBase,
     registerControl: AjaxObserve.registerControl,
     importControl: AjaxObserve.importControl,
     observeControl: AjaxObserve.observeControl,
     fetchControl: AjaxObserve.fetchControl,
-    fetchControls: AjaxObserve.fetchControls
+    fetchControls: AjaxObserve.fetchControls,
+
+    AjaxTurbo,
+    useTurbo: AjaxTurbo.isEnabled,
+    visit: AjaxTurbo.visit,
 };

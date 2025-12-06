@@ -18,16 +18,26 @@ if (!window.jax.AjaxFramework) {
     window.jax.parseJSON = namespace.parseJSON;
 
     // Form serializer
-    window.jax.serializeJSON = namespace.serializeJSON;
-
-    // Selector events
-    window.jax.Events = Events;
+    window.jax.values = namespace.serializeAsJSON;
 
     // Wait for a variable to exist
     window.jax.waitFor = waitFor;
 
     // Fallback for turbo
     window.jax.pageReady = domReady;
+
+    // Selector events
+    window.jax.Events = Events;
+
+    window.jax.dispatch = Events.dispatch;
+
+    window.jax.trigger = Events.trigger;
+
+    window.jax.on = Events.on;
+
+    window.jax.off = Events.off;
+
+    window.jax.one = Events.one;
 
     // Fallback for turbo
     window.jax.visit = (url) => window.location.assign(url);

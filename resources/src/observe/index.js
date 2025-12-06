@@ -10,6 +10,9 @@ if (!window.jax.AjaxObserve) {
     // Namespace
     window.jax.AjaxObserve = namespace;
 
+    // Control base class
+    window.jax.ControlBase = ControlBase;
+
     // Control API
     window.jax.registerControl = namespace.registerControl;
 
@@ -20,9 +23,6 @@ if (!window.jax.AjaxObserve) {
     window.jax.fetchControl = namespace.fetchControl;
 
     window.jax.fetchControls = namespace.fetchControls;
-
-    // Control base class
-    window.jax.ControlBase = ControlBase;
 
     // Boot controller
     if (!isAMD() && !isCommonJS()) {

@@ -6,7 +6,11 @@ export class FormSerializer
         (new FormSerializer).assignObjectInternal(obj, name, value);
     }
 
-    static serializeJSON(element) {
+    static serializeAsJSON(element) {
+        if (typeof element === 'string') {
+            element = document.querySelector(element);
+        }
+
         return (new FormSerializer).parseContainer(element);
     }
 

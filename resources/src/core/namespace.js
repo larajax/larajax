@@ -10,7 +10,7 @@ export default {
 
     parseJSON: JsonParser.parseJSON,
 
-    serializeJSON: FormSerializer.serializeJSON,
+    serializeAsJSON: FormSerializer.serializeAsJSON,
 
     requestElement: RequestBuilder.fromElement,
 
