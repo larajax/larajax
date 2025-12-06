@@ -9,9 +9,6 @@
 [Larajax](https://larajax.org) is a small AJAX framework for Laravel with a single goal:
 to make server-driven UI actions simple again. Modern stacks often turn basic interactions into layers of APIs, JavaScript state, and wiring. Larajax pulls that logic back into the controller and treats rendered HTML as the source of truth.
 
-Larajax lets your HTML call **Laravel controller methods** directly using `data-request`.
-No public API routes. No duplicated endpoints. Each page keeps its own actions.
-
 Extracted from the original [October CMS AJAX framework](https://docs.octobercms.com/4.x/ajax/introduction.html) and maintained by the [October CMS team](https://github.com/octobercms).
 
 ## Learning Larajax
