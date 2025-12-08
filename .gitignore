@@ -1,2 +1,22 @@
-package-lock.json
+# Dependencies
 node_modules
+package-lock.json
+bun.lockb
+
+# IDE
+.idea
+.vscode
+.claude/settings.local.json
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+resources/test.html
+resources/test.js
+
+# Build cache
+.cache
