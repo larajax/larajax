@@ -16,7 +16,6 @@ Thumbs.db
 
 # Test files
 resources/test.html
-resources/test.js
 
 # Build cache
 .cache
