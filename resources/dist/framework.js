@@ -1,6 +1,9 @@
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+var __publicField = (obj, key, value) => {
+  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+  return value;
+};
 (function() {
   "use strict";
   class AssetManager {
@@ -55,7 +58,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }, Promise.resolve());
     }
     loadImages(list) {
-      if (!list.length) return Promise.resolve();
+      if (!list.length)
+        return Promise.resolve();
       return Promise.all(list.map((src) => new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(src);
@@ -454,10 +458,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       rejectFn = reject;
       executor(
         (value) => {
-          if (!hasCanceled) resolve(value);
+          if (!hasCanceled)
+            resolve(value);
         },
         (error) => {
-          if (!hasCanceled) reject(error);
+          if (!hasCanceled)
+            reject(error);
         },
         (onCancel) => {
           cancelHandler = onCancel;
@@ -701,7 +707,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
             ...dispatched.detail || {},
             context: this.context
           });
-          if (event == null ? void 0 : event.defaultPrevented) defaultPrevented = true;
+          if (event == null ? void 0 : event.defaultPrevented)
+            defaultPrevented = true;
         }
       }
       return defaultPrevented;
@@ -1940,7 +1947,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
             return body;
           } else if (str[i] === '"') {
             body += '\\"';
-          } else body += str[i];
+          } else
+            body += str[i];
         }
         throw new Error("Invalid string JSON object.");
       }
@@ -2013,7 +2021,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
               continue;
             }
             if (str[i] === "]" && i === str.length - 1) {
-              if (result[result.length - 1] === ",") result = result.substr(0, result.length - 1);
+              if (result[result.length - 1] === ",")
+                result = result.substr(0, result.length - 1);
               result += "]";
               return result;
             }
@@ -2026,7 +2035,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
               result += ",";
               type = "needBody";
               while (str[i + 1] === "," || this.isBlankChar(str[i + 1])) {
-                if (str[i + 1] === ",") result += "null,";
+                if (str[i + 1] === ",")
+                  result += "null,";
                 i++;
               }
             } else if (str[i] === "]" && i === str.length - 1) {
@@ -2060,7 +2070,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         for (var i = pos + 1; i < str.length; i++) {
           if (str[i] === "\\") {
             body += str[i];
-            if (i + 1 < str.length) body += str[i + 1];
+            if (i + 1 < str.length)
+              body += str[i + 1];
             i++;
           } else if (str[i] === str[pos]) {
             body += str[pos];
@@ -2068,7 +2079,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
               originLength: body.length,
               body
             };
-          } else body += str[i];
+          } else
+            body += str[i];
         }
         throw new Error("Broken JSON string body near " + body);
       }
@@ -2119,7 +2131,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         for (var i = pos + 1; i < str.length; i++) {
           body += str[i];
           if (str[i] === "\\") {
-            if (i + 1 < str.length) body += str[i + 1];
+            if (i + 1 < str.length)
+              body += str[i + 1];
             i++;
           } else if (str[i] === '"') {
             if (stack[stack.length - 1] === '"') {
@@ -2164,11 +2177,16 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       throw new Error("Broken JSON body near " + str.substr(pos - 5 >= 0 ? pos - 5 : 0, 50));
     }
     canBeKeyHead(ch) {
-      if (ch[0] === "\\") return false;
-      if (ch[0] >= "a" && ch[0] <= "z" || ch[0] >= "A" && ch[0] <= "Z" || ch[0] === "_") return true;
-      if (ch[0] >= "0" && ch[0] <= "9") return true;
-      if (ch[0] === "$") return true;
-      if (ch.charCodeAt(0) > 255) return true;
+      if (ch[0] === "\\")
+        return false;
+      if (ch[0] >= "a" && ch[0] <= "z" || ch[0] >= "A" && ch[0] <= "Z" || ch[0] === "_")
+        return true;
+      if (ch[0] >= "0" && ch[0] <= "9")
+        return true;
+      if (ch[0] === "$")
+        return true;
+      if (ch.charCodeAt(0) > 255)
+        return true;
       return false;
     }
     isBlankChar(ch) {

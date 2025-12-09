@@ -10,9 +10,12 @@
         "vite": "^6.0.3"
     },
     "scripts": {
-        "dev": "ENTRY=framework vite build --mode development && ENTRY=framework-bundle vite build --mode development",
-        "watch": "ENTRY=framework vite build --watch --mode development",
-        "build": "ENTRY=framework vite build && ENTRY=framework-bundle vite build",
+        "dev:framework": "vite build --mode development --config vite.framework.config.js",
+        "dev:bundle": "vite build --mode development --config vite.bundle.config.js",
+        "build:framework": "vite build --mode production --config vite.framework.config.js",
+        "build:bundle": "vite build --mode production --config vite.bundle.config.js",
+        "dev": "bun run dev:framework && bun run dev:bundle",
+        "build": "bun run build:framework && bun run build:bundle",
         "pub": "bun run dev && bun run build",
         "test": "bun test.js"
     },
