@@ -267,46 +267,113 @@ class AjaxResponse implements Responsable
 
     /**
      * js adds a JavaScript file or files to load with the output.
+     *
+     * Usage:
+     *   ajax()->js('path/to/file.js')
+     *   ajax()->js('path/to/file.js', ['type' => 'module'])
+     *   ajax()->js(['path/to/file1.js', 'path/to/file2.js'])
+     *   ajax()->js([
+     *       'path/to/file1.js' => ['type' => 'module'],
+     *       'path/to/file2.js' => ['defer' => true],
+     *   ])
      */
-    public function js(string|array $paths): static
+    public function js(string|array $paths, array $attributes = []): static
     {
-        return $this->asset('js', $paths);
+        return $this->asset('js', $paths, $attributes);
     }
 
     /**
      * css adds a StyleSheet file or files to load with the output.
+     *
+     * Usage:
+     *   ajax()->css('path/to/file.css')
+     *   ajax()->css('path/to/file.css', ['media' => 'print'])
+     *   ajax()->css(['path/to/file1.css', 'path/to/file2.css'])
+     *   ajax()->css([
+     *       'path/to/file1.css' => ['media' => 'screen'],
+     *       'path/to/file2.css' => ['media' => 'print'],
+     *   ])
      */
-    public function css(string|array $paths): static
+    public function css(string|array $paths, array $attributes = []): static
     {
-        return $this->asset('css', $paths);
+        return $this->asset('css', $paths, $attributes);
     }
 
     /**
      * img adds an image file or files to load with the output.
+     *
+     * Usage:
+     *   ajax()->img('path/to/image.jpg')
+     *   ajax()->img(['path/to/image1.jpg', 'path/to/image2.jpg'])
      */
-    public function img(string|array $paths): static
+    public function img(string|array $paths, array $attributes = []): static
     {
-        return $this->asset('img', $paths);
+        return $this->asset('img', $paths, $attributes);
     }
 
     /**
      * Adds an asset file or files to load with the output.
      *
      * Supported types: js, css, img
+     *
+     * The $paths parameter can be:
+     * - A string: single path
+     * - A sequential array: list of paths (no attributes)
+     * - An associative array: path => attributes mapping
+     *
+     * The $attributes parameter applies to all paths when $paths is a string
+     * or sequential array.
      */
-    public function asset(string $type, string|array $paths): static
+    public function asset(string $type, string|array $paths, array $attributes = []): static
     {
         if (!$paths) {
             return $this;
         }
 
+        // Normalize to array of {url, attributes} objects
+        $assets = $this->normalizeAssetPaths($paths, $attributes);
+
         $this->ajaxData['content']['ops'][] = [
             'op' => self::OP_LOAD_ASSETS,
             'type' => $type,
-            'urls' => $paths,
+            'assets' => $assets,
         ];
 
         return $this;
+    }
+
+    /**
+     * Normalizes asset paths into a consistent format.
+     *
+     * @return array Array of ['url' => string, 'attributes' => array]
+     */
+    protected function normalizeAssetPaths(string|array $paths, array $attributes = []): array
+    {
+        // Single string path
+        if (is_string($paths)) {
+            return [['url' => $paths, 'attributes' => $attributes]];
+        }
+
+        $assets = [];
+
+        foreach ($paths as $key => $value) {
+            // Associative: path => attributes
+            if (is_string($key)) {
+                $assets[] = [
+                    'url' => $key,
+                    'attributes' => is_array($value) ? $value : []
+                ];
+            }
+            // Sequential: just a path string
+            else {
+                $assets[] = [
+                    'url' => $value,
+                    'attributes' => $attributes
+                ];
+            }
+        }
+
+        return $assets;
     }
 
     /**

@@ -78,19 +78,21 @@ export class Envelope
 
     getAssets() {
         const out = { js: [], css: [], img: [] };
+        const seen = { js: new Set(), css: new Set(), img: new Set() };
 
-        for (const { type, urls = [] } of this.getOps('loadAssets')) {
+        for (const { type, assets = [] } of this.getOps('loadAssets')) {
             if (!out[type]) {
                 continue;
             }
 
-            out[type].push(...urls);
+            for (const asset of assets) {
+                // Each asset is { url, attributes }
+                if (!seen[type].has(asset.url)) {
+                    seen[type].add(asset.url);
+                    out[type].push(asset);
+                }
+            }
         }
-
-        // De-duplicate
-        out.js = Array.from(new Set(out.js));
-        out.css = Array.from(new Set(out.css));
-        out.img = Array.from(new Set(out.img));
 
         return out;
     }
