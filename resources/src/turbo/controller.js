@@ -13,6 +13,8 @@ export class Controller
         this.adapter = new BrowserAdapter(this);
         this.history = new History(this);
         this.restorationData = {};
+        this.restorationDataKeys = [];
+        this.restorationDataLimit = 20;
         this.scrollManager = new ScrollManager(this);
         this.useScroll = true;
         this.view = new View(this);
@@ -22,7 +24,8 @@ export class Controller
         this.progressBarDelay = 500;
         this.progressBarVisible = true;
         this.started = false;
-        this.uniqueInlineScripts = [];
+        this.uniqueInlineScripts = new Set();
+        this.uniqueInlineScriptsLimit = 100;
         this.currentVisit = null;
         this.historyVisit = null;
         this.pageIsReady = false;
@@ -269,8 +272,15 @@ export class Controller
             return false;
         }
 
-        const hasSeen = !!this.uniqueInlineScripts[uid];
-        this.uniqueInlineScripts[uid] = true;
+        const hasSeen = this.uniqueInlineScripts.has(uid);
+        if (!hasSeen) {
+            // Trim if at limit (remove oldest entries)
+            if (this.uniqueInlineScripts.size >= this.uniqueInlineScriptsLimit) {
+                const iterator = this.uniqueInlineScripts.values();
+                this.uniqueInlineScripts.delete(iterator.next().value);
+            }
+            this.uniqueInlineScripts.add(uid);
+        }
         return hasSeen;
     }
 
@@ -433,8 +443,17 @@ export class Controller
     getRestorationDataForIdentifier(identifier) {
         if (!(identifier in this.restorationData)) {
             this.restorationData[identifier] = {};
+            this.restorationDataKeys.push(identifier);
+            this.trimRestorationData();
         }
         return this.restorationData[identifier];
+    }
+
+    trimRestorationData() {
+        while (this.restorationDataKeys.length > this.restorationDataLimit) {
+            const oldestKey = this.restorationDataKeys.shift();
+            delete this.restorationData[oldestKey];
+        }
     }
 }
 
