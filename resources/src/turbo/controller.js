@@ -64,8 +64,8 @@ export class Controller
         if (Controller.supported && !this.started) {
             addEventListener('click', this.clickCaptured, true);
             addEventListener('DOMContentLoaded', this.pageLoaded, false);
-            this.scrollManager.start();
             this.startHistory();
+            this.scrollManager.start();
             this.started = true;
             this.enabled = this.documentIsEnabled();
         }
