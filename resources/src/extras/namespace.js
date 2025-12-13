@@ -1,5 +1,4 @@
 import { Controller } from "./controller";
-import { Migrate } from "./migrate";
 import { FlashMessage } from "./flash-message";
 import { ProgressBar } from "./progress-bar";
 import { AttachLoader } from "./attach-loader";
@@ -16,10 +15,6 @@ export default {
 
     start() {
         controller.start();
-
-        if (window.jQuery) {
-            (new Migrate).bind();
-        }
     },
 
     stop() {
