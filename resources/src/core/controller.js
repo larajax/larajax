@@ -5,6 +5,7 @@ export class Controller
 {
     constructor() {
         this.started = false;
+        this.triggers = new WeakMap();
     }
 
     start() {
