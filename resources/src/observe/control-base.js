@@ -14,7 +14,7 @@ class ControlBase
     constructor(context) {
         this.context = context;
 
-        this.config = { ...(context.scope.element.dataset || {}) };
+        this.config = this.parseDataset(context.scope.element.dataset || {});
     }
 
     get application() {
@@ -142,6 +142,23 @@ class ControlBase
         this.proxiedMethods[method.ocProxyId] = method.bind(this);
 
         return this.proxiedMethods[method.ocProxyId];
+    }
+
+    parseDataset(dataset) {
+        const result = {};
+        for (const [key, value] of Object.entries(dataset)) {
+            result[key] = this.parseValue(value);
+        }
+        return result;
+    }
+
+    parseValue(value) {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        if (value === 'null') return null;
+        if (value === 'undefined') return undefined;
+        if (value !== '' && !isNaN(Number(value))) return Number(value);
+        return value;
     }
 }
 
