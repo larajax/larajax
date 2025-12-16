@@ -12,6 +12,15 @@ export class Controller
             // Track unload event for request lib
             window.onbeforeunload = this.documentOnBeforeUnload;
 
+            // Document-level delegation for native events
+            Events.on(document, 'click', '[data-request]', this.onTriggerEvent);
+            Events.on(document, 'submit', '[data-request]', this.onTriggerEvent);
+            Events.on(document, 'change', '[data-request]', this.onTriggerEvent);
+            Events.on(document, 'input', '[data-request]', this.onTriggerEvent);
+
+            // Custom event for invented triggers (load, revealed, intersect, poll)
+            Events.on(document, 'ajax:trigger', '[data-request]', this.onTriggerEvent);
+
             // First page load
             addEventListener('DOMContentLoaded', () => this.render());
 
@@ -41,11 +50,56 @@ export class Controller
         // Resize event to adjust all measurements
         dispatchEvent(new Event('resize'));
 
-        // Bind triggers on elements that haven't been bound yet
+        // Initialize triggers for invented events only (load, revealed, intersect)
+        // Native events (click, submit, change, input) are handled by document delegation
         document.querySelectorAll('[data-request]:not([data-trigger-bound])').forEach(el => {
-            el.setAttribute('data-trigger-bound', '');
-            new Trigger(el).bind();
+            const trigger = this.getTrigger(el);
+            const eventType = trigger.config.event;
+
+            // Only bind directly for invented events
+            if (eventType === 'load' || eventType === 'revealed' || eventType === 'intersect') {
+                el.setAttribute('data-trigger-bound', '');
+                trigger.bind();
+            }
+
+            // Setup polling if configured (works with any event type)
+            if (trigger.config.poll > 0) {
+                el.setAttribute('data-trigger-bound', '');
+                trigger.startPolling();
+            }
         });
+    }
+
+    /**
+     * Get or create a Trigger instance for an element
+     */
+    getTrigger(el) {
+        let trigger = this.triggers.get(el);
+        if (!trigger) {
+            trigger = new Trigger(el);
+            this.triggers.set(el, trigger);
+        }
+        return trigger;
+    }
+
+    /**
+     * Handle delegated trigger events
+     */
+    onTriggerEvent = (event) => {
+        const el = event.delegateTarget;
+        const trigger = this.getTrigger(el);
+        const configEvent = trigger.config.event;
+
+        // For ajax:trigger (invented events), always handle
+        if (event.type === 'ajax:trigger') {
+            trigger.handleEvent(event);
+            return;
+        }
+
+        // For native events, only handle if it matches the configured trigger event
+        if (event.type === configEvent) {
+            trigger.handleEvent(event);
+        }
     }
 
     documentOnBeforeUnload(event) {

@@ -1,4 +1,5 @@
 import { RequestBuilder } from "./request-builder";
+import { dispatch } from "../util";
 
 export class Trigger
 {
@@ -130,38 +131,19 @@ export class Trigger
     }
 
     /**
-     * Bind event listeners based on config
+     * Bind event listeners for invented events only.
+     * Standard DOM events (click, submit, change, input) are handled
+     * via document-level delegation in Controller.
      */
     bind() {
-        const { event, poll } = this.config;
+        const { event } = this.config;
 
-        // Special events
+        // Invented events that need direct binding
         if (event === 'load') {
-            this.handleEvent();
+            dispatch('ajax:trigger', { target: this.element });
         }
         else if (event === 'revealed' || event === 'intersect') {
             this.observeVisibility();
-        }
-        else {
-            // Standard DOM events
-            this.element.addEventListener(event, (e) => this.handleEvent(e));
-
-            // For forms, also handle enter key on inputs
-            if (event === 'submit') {
-                this.element.querySelectorAll('input').forEach(input => {
-                    input.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            this.handleEvent(e);
-                        }
-                    });
-                });
-            }
-        }
-
-        // Setup polling if configured
-        if (poll > 0) {
-            this.startPolling();
         }
     }
 
@@ -169,6 +151,11 @@ export class Trigger
      * Handle the trigger event
      */
     handleEvent(event) {
+        // User already prevented this event, respect it
+        if (event && event.defaultPrevented) {
+            return;
+        }
+
         // Element removed from DOM, ignore
         if (!this.isConnected()) {
             return;
@@ -262,7 +249,7 @@ export class Trigger
                 }
 
                 if (entry.isIntersecting) {
-                    this.handleEvent();
+                    dispatch('ajax:trigger', { target: this.element });
                     if (this.config.once || this.config.event === 'intersect') {
                         observer.disconnect();
                     }
@@ -288,7 +275,7 @@ export class Trigger
 
             // Only fire when page is visible
             if (!document.hidden) {
-                this.fire();
+                dispatch('ajax:trigger', { target: this.element });
             }
         }, this.config.poll);
     }
