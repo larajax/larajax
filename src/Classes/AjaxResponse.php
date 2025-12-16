@@ -345,13 +345,16 @@ class AjaxResponse implements Responsable
     /**
      * Normalizes asset paths into a consistent format.
      *
-     * @return array Array of ['url' => string, 'attributes' => array]
+     * Returns strings for paths without attributes (smaller payload),
+     * or {url, attributes} objects when attributes are present.
+     *
+     * @return array Array of strings or ['url' => string, 'attributes' => array]
      */
     protected function normalizeAssetPaths(string|array $paths, array $attributes = []): array
     {
         // Single string path
         if (is_string($paths)) {
-            return [['url' => $paths, 'attributes' => $attributes]];
+            return $attributes ? [['url' => $paths, 'attributes' => $attributes]] : [$paths];
         }
 
         $assets = [];
@@ -359,17 +362,12 @@ class AjaxResponse implements Responsable
         foreach ($paths as $key => $value) {
             // Associative: path => attributes
             if (is_string($key)) {
-                $assets[] = [
-                    'url' => $key,
-                    'attributes' => is_array($value) ? $value : []
-                ];
+                $attrs = is_array($value) ? $value : [];
+                $assets[] = $attrs ? ['url' => $key, 'attributes' => $attrs] : $key;
             }
             // Sequential: just a path string
             else {
-                $assets[] = [
-                    'url' => $value,
-                    'attributes' => $attributes
-                ];
+                $assets[] = $attributes ? ['url' => $value, 'attributes' => $attributes] : $value;
             }
         }
 
