@@ -19,6 +19,13 @@
             "Larajax\\": "src/"
         }
     },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Larajax\\LarajaxServiceProvider"
+            ]
+        }
+    },
     "minimum-stability": "stable",
     "prefer-stable": true
 }
