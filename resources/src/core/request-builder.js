@@ -9,7 +9,10 @@ export class RequestBuilder
         this.element = this.findElement(element);
 
         if (!this.element) {
-            return Request.send(handler, this.options);
+            return Request.send(
+                this.normalizeHandler(handler),
+                this.options
+            );
         }
 
         this.assignAsEval('beforeSendFunc', 'requestBeforeSend');
@@ -46,7 +49,11 @@ export class RequestBuilder
             handler = this.getHandlerName();
         }
 
-        return Request.sendElement(this.element, handler, this.options);
+        return Request.sendElement(
+            this.element,
+            this.normalizeHandler(handler),
+            this.options
+        );
     }
 
     static fromElement(element, handler, options) {
@@ -83,6 +90,18 @@ export class RequestBuilder
         }
 
         return this.element.getAttribute('data-request');
+    }
+
+    normalizeHandler(handler) {
+        // If handler is not a valid handler name, treat it as a URL and default to onAjax
+        if (handler && !isValidHandler(handler)) {
+            if (this.options.url === undefined) {
+                this.options.url = handler;
+            }
+            return 'onAjax';
+        }
+
+        return handler;
     }
 
     assignAsEval(optionName, name) {
@@ -217,4 +236,8 @@ function elementParents(element, selector) {
 
 function normalizeDataKey(key) {
     return key.replace(/[A-Z]/g, chr => `-${chr.toLowerCase()}`)
+}
+
+function isValidHandler(str) {
+    return /^(?:\w+\:{2})?on[A-Z]{1}[\w+]*$/.test(str);
 }
