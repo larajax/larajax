@@ -51,13 +51,19 @@ export class Controller
         // Resize event to adjust all measurements
         dispatchEvent(new Event('resize'));
 
-        // Initialize triggers for invented events only (load, revealed, intersect)
-        // Native events (click, submit, change, input) are handled by document delegation
+        this.bindCustomTriggers();
+    }
+
+    /**
+     * Initialize triggers for custom events (load, revealed, intersect)
+     * Native events (click, submit, change, input) are handled by document delegation
+     */
+    bindCustomTriggers() {
         document.querySelectorAll('[data-request]:not([data-trigger-bound])').forEach(el => {
             const trigger = this.getTrigger(el);
             const eventType = trigger.config.event;
 
-            // Only bind directly for invented events
+            // Only bind directly for custom events
             if (eventType === 'load' || eventType === 'revealed' || eventType === 'intersect') {
                 el.setAttribute('data-trigger-bound', '');
                 trigger.bind();
