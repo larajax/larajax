@@ -412,7 +412,8 @@ export class Controller
     documentIsEnabled() {
         const meta = document.documentElement.querySelector('head meta[name="turbo-visit-control"]');
         if (meta) {
-            return meta.getAttribute('content') == 'enable';
+            const value = meta.getAttribute('content');
+            return value == 'enable' || value == 'reload';
         }
 
         return false;
