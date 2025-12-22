@@ -6,70 +6,225 @@ var __publicField = (obj, key, value) => {
 };
 (function() {
   "use strict";
-  class AssetManager {
-    /**
-     * Load a collection of assets.
-     * @param {{js?: string[], css?: string[], img?: string[]}} collection
-     * @param {(err?: Error) => void} [callback]  // optional; called on success or with error
-     * @returns {Promise<void>}
-     */
-    static load(collection = {}, callback) {
-      const manager = new AssetManager(), promise = manager.loadCollection(collection);
-      if (typeof callback === "function") {
-        promise.then(() => callback());
-      }
-      return promise;
+  function dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
+    const event = new CustomEvent(eventName, { detail, bubbles, cancelable });
+    target.dispatchEvent(event);
+    return event;
+  }
+  function unindent(strings, ...values) {
+    const lines = trimLeft(interpolate(strings, values)).split("\n");
+    const match = lines[0].match(/^\s+/);
+    const indent = match ? match[0].length : 0;
+    return lines.map((line) => line.slice(indent)).join("\n");
+  }
+  function trimLeft(string) {
+    return string.replace(/^\n/, "");
+  }
+  function interpolate(strings, values) {
+    return strings.reduce((result, string, i) => {
+      const value = values[i] == void 0 ? "" : values[i];
+      return result + string + value;
+    }, "");
+  }
+  const namespaceRegex = /[^.]*(?=\..*)\.|.*/;
+  const stripNameRegex = /\..*/;
+  const stripUidRegex = /::\d+$/;
+  const eventRegistry = {};
+  let uidEvent = 1;
+  const customEvents = {
+    mouseenter: "mouseover",
+    mouseleave: "mouseout"
+  };
+  const nativeEvents = /* @__PURE__ */ new Set([
+    "click",
+    "dblclick",
+    "mouseup",
+    "mousedown",
+    "contextmenu",
+    "mousewheel",
+    "DOMMouseScroll",
+    "mouseover",
+    "mouseout",
+    "mousemove",
+    "selectstart",
+    "selectend",
+    "keydown",
+    "keypress",
+    "keyup",
+    "orientationchange",
+    "touchstart",
+    "touchmove",
+    "touchend",
+    "touchcancel",
+    "pointerdown",
+    "pointermove",
+    "pointerup",
+    "pointerleave",
+    "pointercancel",
+    "gesturestart",
+    "gesturechange",
+    "gestureend",
+    "focus",
+    "blur",
+    "change",
+    "reset",
+    "select",
+    "submit",
+    "focusin",
+    "focusout",
+    "load",
+    "unload",
+    "beforeunload",
+    "resize",
+    "move",
+    "DOMContentLoaded",
+    "readystatechange",
+    "error",
+    "abort",
+    "scroll"
+  ]);
+  class Events {
+    static on(element, event, handler, delegationFunction, options) {
+      addHandler(element, event, handler, delegationFunction, options, false);
     }
-    async loadCollection(collection = {}) {
-      const jsList = (collection.js ?? []).filter((src) => !document.querySelector(`head script[src="${htmlEscape(src)}"]`));
-      const cssList = (collection.css ?? []).filter((href) => !document.querySelector(`head link[href="${htmlEscape(href)}"]`));
-      const imgList = collection.img ?? [];
-      if (!jsList.length && !cssList.length && !imgList.length) {
+    static one(element, event, handler, delegationFunction, options) {
+      addHandler(element, event, handler, delegationFunction, options, true);
+    }
+    static off(element, originalTypeEvent, handler, delegationFunction, options) {
+      if (typeof originalTypeEvent !== "string" || !element) {
         return;
       }
-      await Promise.all([
-        this.loadJavaScript(jsList),
-        Promise.all(cssList.map((h) => this.loadStyleSheet(h))),
-        this.loadImages(imgList)
-      ]);
+      const [isDelegated, callable, typeEvent, opts] = normalizeParameters(originalTypeEvent, handler, delegationFunction, options);
+      const inNamespace = typeEvent !== originalTypeEvent;
+      const events = getElementEvents(element);
+      const storeElementEvent = events[typeEvent] || {};
+      const isNamespace = originalTypeEvent.startsWith(".");
+      if (typeof callable !== "undefined") {
+        if (!storeElementEvent) {
+          return;
+        }
+        removeHandler(element, events, typeEvent, callable, isDelegated ? handler : null, opts);
+        return;
+      }
+      if (isNamespace) {
+        for (const elementEvent of Object.keys(events)) {
+          removeNamespacedHandlers(element, events, elementEvent, originalTypeEvent.slice(1));
+        }
+      }
+      for (const keyHandlers of Object.keys(storeElementEvent)) {
+        const handlerKey = keyHandlers.replace(stripUidRegex, "");
+        if (!inNamespace || originalTypeEvent.includes(handlerKey)) {
+          const event = storeElementEvent[keyHandlers];
+          removeHandler(element, events, typeEvent, event.callable, event.delegationSelector, opts);
+        }
+      }
     }
-    loadStyleSheet(href) {
-      return new Promise((resolve, reject) => {
-        const el = document.createElement("link");
-        el.rel = "stylesheet";
-        el.type = "text/css";
-        el.href = href;
-        el.onload = () => resolve(el);
-        el.onerror = () => reject(new Error(`Failed to load CSS: ${href}`));
-        document.head.appendChild(el);
-      });
+    static dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
+      return dispatch(eventName, { target, detail, bubbles, cancelable });
     }
-    // Sequential loading (safer for dependencies)
-    loadJavaScript(list) {
-      return list.reduce((p, src) => {
-        return p.then(() => new Promise((resolve, reject) => {
-          const el = document.createElement("script");
-          el.type = "text/javascript";
-          el.src = src;
-          el.onload = () => resolve(el);
-          el.onerror = () => reject(new Error(`Failed to load JS: ${src}`));
-          document.head.appendChild(el);
-        }));
-      }, Promise.resolve());
-    }
-    loadImages(list) {
-      if (!list.length)
-        return Promise.resolve();
-      return Promise.all(list.map((src) => new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(src);
-        img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-        img.src = src;
-      })));
+    static trigger(target, eventName, { detail = {}, bubbles = true, cancelable = true } = {}) {
+      return dispatch(eventName, { target, detail, bubbles, cancelable });
     }
   }
-  function htmlEscape(value) {
-    return String(value).replace(/"/g, '\\"');
+  function makeEventUid(element, uid) {
+    return uid && `${uid}::${uidEvent++}` || element.uidEvent || uidEvent++;
+  }
+  function getElementEvents(element) {
+    const uid = makeEventUid(element);
+    element.uidEvent = uid;
+    eventRegistry[uid] = eventRegistry[uid] || {};
+    return eventRegistry[uid];
+  }
+  function findHandler(events, callable, delegationSelector = null) {
+    return Object.values(events).find((event) => event.callable === callable && event.delegationSelector === delegationSelector);
+  }
+  function normalizeParameters(originalTypeEvent, handler, delegationFunction, options) {
+    const isDelegated = typeof handler === "string";
+    const callable = isDelegated ? delegationFunction : handler;
+    const opts = isDelegated ? options : delegationFunction;
+    let typeEvent = getTypeEvent(originalTypeEvent);
+    if (!nativeEvents.has(typeEvent)) {
+      typeEvent = originalTypeEvent;
+    }
+    return [isDelegated, callable, typeEvent, opts];
+  }
+  function addHandler(element, originalTypeEvent, handler, delegationFunction, options, oneOff) {
+    if (typeof originalTypeEvent !== "string" || !element) {
+      return;
+    }
+    let [isDelegated, callable, typeEvent, opts] = normalizeParameters(originalTypeEvent, handler, delegationFunction, options);
+    if (originalTypeEvent in customEvents) {
+      const wrapFunction = (fn2) => {
+        return function(event) {
+          if (!event.relatedTarget || event.relatedTarget !== event.delegateTarget && !event.delegateTarget.contains(event.relatedTarget)) {
+            return fn2.call(this, event);
+          }
+        };
+      };
+      callable = wrapFunction(callable);
+    }
+    const events = getElementEvents(element);
+    const handlers = events[typeEvent] || (events[typeEvent] = {});
+    const previousFunction = findHandler(handlers, callable, isDelegated ? handler : null);
+    if (previousFunction) {
+      previousFunction.oneOff = previousFunction.oneOff && oneOff;
+      return;
+    }
+    const uid = makeEventUid(callable, originalTypeEvent.replace(namespaceRegex, ""));
+    const fn = isDelegated ? internalDelegationHandler(element, handler, callable) : internalHandler(element, callable);
+    fn.delegationSelector = isDelegated ? handler : null;
+    fn.callable = callable;
+    fn.oneOff = oneOff;
+    fn.uidEvent = uid;
+    handlers[uid] = fn;
+    element.addEventListener(typeEvent, fn, opts);
+  }
+  function removeHandler(element, events, typeEvent, handler, delegationSelector, options) {
+    const fn = findHandler(events[typeEvent], handler, delegationSelector);
+    if (!fn) {
+      return;
+    }
+    element.removeEventListener(typeEvent, fn, options);
+    delete events[typeEvent][fn.uidEvent];
+  }
+  function internalHandler(element, fn) {
+    return function handler(event) {
+      event.delegateTarget = element;
+      if (handler.oneOff) {
+        Events.off(element, event.type, fn);
+      }
+      return fn.apply(element, [event]);
+    };
+  }
+  function internalDelegationHandler(element, selector, fn) {
+    return function handler(event) {
+      const domElements = element.querySelectorAll(selector);
+      for (let { target } = event; target && target !== this; target = target.parentNode) {
+        for (const domElement of domElements) {
+          if (domElement !== target) {
+            continue;
+          }
+          event.delegateTarget = target;
+          if (handler.oneOff) {
+            Events.off(element, event.type, selector, fn);
+          }
+          return fn.apply(target, [event]);
+        }
+      }
+    };
+  }
+  function removeNamespacedHandlers(element, events, typeEvent, namespace) {
+    const storeElementEvent = events[typeEvent] || {};
+    for (const handlerKey of Object.keys(storeElementEvent)) {
+      if (handlerKey.includes(namespace)) {
+        const event = storeElementEvent[handlerKey];
+        removeHandler(element, events, typeEvent, event.callable, event.delegationSelector);
+      }
+    }
+  }
+  function getTypeEvent(event) {
+    event = event.replace(stripNameRegex, "");
+    return customEvents[event] || event;
   }
   class Envelope {
     constructor(response = {}, status = 200) {
@@ -136,15 +291,18 @@ var __publicField = (obj, key, value) => {
     }
     getAssets() {
       const out = { js: [], css: [], img: [] };
-      for (const { type, urls = [] } of this.getOps("loadAssets")) {
+      const seen = { js: /* @__PURE__ */ new Set(), css: /* @__PURE__ */ new Set(), img: /* @__PURE__ */ new Set() };
+      for (const { type, assets = [] } of this.getOps("loadAssets")) {
         if (!out[type]) {
           continue;
         }
-        out[type].push(...urls);
+        for (const asset of assets) {
+          if (!seen[type].has(asset.url)) {
+            seen[type].add(asset.url);
+            out[type].push(asset);
+          }
+        }
       }
-      out.js = Array.from(new Set(out.js));
-      out.css = Array.from(new Set(out.css));
-      out.img = Array.from(new Set(out.img));
       return out;
     }
     getRedirectUrl() {
@@ -249,6 +407,97 @@ var __publicField = (obj, key, value) => {
       return cookieValue;
     }
   }
+  class AssetManager {
+    /**
+     * Load a collection of assets.
+     * @param {{js?: Array<string|{url: string, attributes?: object}>, css?: Array<string|{url: string, attributes?: object}>, img?: Array<string|{url: string, attributes?: object}>}} collection
+     * @param {(err?: Error) => void} [callback]  // optional; called on success or with error
+     * @returns {Promise<void>}
+     */
+    static load(collection = {}, callback) {
+      const manager = new AssetManager(), promise = manager.loadCollection(collection);
+      if (typeof callback === "function") {
+        promise.then(() => callback());
+      }
+      return promise;
+    }
+    async loadCollection(collection = {}) {
+      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+      const cssList = (collection.css ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
+      const imgList = (collection.img ?? []).map(normalizeAsset);
+      if (!jsList.length && !cssList.length && !imgList.length) {
+        return;
+      }
+      await Promise.all([
+        this.loadJavaScript(jsList),
+        Promise.all(cssList.map((asset) => this.loadStyleSheet(asset))),
+        this.loadImages(imgList)
+      ]);
+    }
+    loadStyleSheet(asset) {
+      const { url, attributes = {} } = asset;
+      return new Promise((resolve, reject) => {
+        const el = document.createElement("link");
+        el.rel = "stylesheet";
+        el.type = "text/css";
+        el.href = url;
+        for (const [key, value] of Object.entries(attributes)) {
+          if (value === true) {
+            el.setAttribute(key, "");
+          } else if (value !== false && value != null) {
+            el.setAttribute(key, value);
+          }
+        }
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error(`Failed to load CSS: ${url}`));
+        document.head.appendChild(el);
+      });
+    }
+    // Sequential loading (safer for dependencies)
+    loadJavaScript(list) {
+      return list.reduce((p, asset) => {
+        const { url, attributes = {} } = asset;
+        return p.then(() => new Promise((resolve, reject) => {
+          const el = document.createElement("script");
+          if (attributes.type) {
+            el.type = attributes.type;
+          } else {
+            el.type = "text/javascript";
+          }
+          el.src = url;
+          for (const [key, value] of Object.entries(attributes)) {
+            if (key === "type")
+              continue;
+            if (value === true) {
+              el.setAttribute(key, "");
+            } else if (value !== false && value != null) {
+              el.setAttribute(key, value);
+            }
+          }
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error(`Failed to load JS: ${url}`));
+          document.head.appendChild(el);
+        }));
+      }, Promise.resolve());
+    }
+    loadImages(list) {
+      if (!list.length)
+        return Promise.resolve();
+      return Promise.all(list.map((asset) => new Promise((resolve, reject) => {
+        const { url } = asset;
+        const img = new Image();
+        img.onload = () => resolve(url);
+        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+        img.src = url;
+      })));
+    }
+  }
+  function normalizeAsset(asset) {
+    return typeof asset === "string" ? { url: asset } : asset;
+  }
+  function htmlEscape(value) {
+    return String(value).replace(/"/g, '\\"');
+  }
   var DomUpdateMode = {
     replaceWith: "replace",
     prepend: "prepend",
@@ -274,7 +523,7 @@ var __publicField = (obj, key, value) => {
     applyPartialUpdates() {
       const partials = this.envelope.getPartials();
       partials.forEach((partial) => {
-        const selector = this.partialMap[partial.name];
+        let selector = this.partialMap[partial.name];
         let selectedEl = [];
         if (this.partialMap["_self"] && partial == this.options.partial && this.options.partialEl) {
           selector = this.partialMap["_self"];
@@ -1060,226 +1309,6 @@ var __publicField = (obj, key, value) => {
   function isElementInput(el) {
     return ["input", "select", "textarea"].includes((el.tagName || "").toLowerCase());
   }
-  function dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
-    const event = new CustomEvent(eventName, { detail, bubbles, cancelable });
-    target.dispatchEvent(event);
-    return event;
-  }
-  function unindent(strings, ...values) {
-    const lines = trimLeft(interpolate(strings, values)).split("\n");
-    const match = lines[0].match(/^\s+/);
-    const indent = match ? match[0].length : 0;
-    return lines.map((line) => line.slice(indent)).join("\n");
-  }
-  function trimLeft(string) {
-    return string.replace(/^\n/, "");
-  }
-  function interpolate(strings, values) {
-    return strings.reduce((result, string, i) => {
-      const value = values[i] == void 0 ? "" : values[i];
-      return result + string + value;
-    }, "");
-  }
-  const namespaceRegex = /[^.]*(?=\..*)\.|.*/;
-  const stripNameRegex = /\..*/;
-  const stripUidRegex = /::\d+$/;
-  const eventRegistry = {};
-  let uidEvent = 1;
-  const customEvents = {
-    mouseenter: "mouseover",
-    mouseleave: "mouseout"
-  };
-  const nativeEvents = /* @__PURE__ */ new Set([
-    "click",
-    "dblclick",
-    "mouseup",
-    "mousedown",
-    "contextmenu",
-    "mousewheel",
-    "DOMMouseScroll",
-    "mouseover",
-    "mouseout",
-    "mousemove",
-    "selectstart",
-    "selectend",
-    "keydown",
-    "keypress",
-    "keyup",
-    "orientationchange",
-    "touchstart",
-    "touchmove",
-    "touchend",
-    "touchcancel",
-    "pointerdown",
-    "pointermove",
-    "pointerup",
-    "pointerleave",
-    "pointercancel",
-    "gesturestart",
-    "gesturechange",
-    "gestureend",
-    "focus",
-    "blur",
-    "change",
-    "reset",
-    "select",
-    "submit",
-    "focusin",
-    "focusout",
-    "load",
-    "unload",
-    "beforeunload",
-    "resize",
-    "move",
-    "DOMContentLoaded",
-    "readystatechange",
-    "error",
-    "abort",
-    "scroll"
-  ]);
-  class Events {
-    static on(element, event, handler, delegationFunction, options) {
-      addHandler(element, event, handler, delegationFunction, options, false);
-    }
-    static one(element, event, handler, delegationFunction, options) {
-      addHandler(element, event, handler, delegationFunction, options, true);
-    }
-    static off(element, originalTypeEvent, handler, delegationFunction, options) {
-      if (typeof originalTypeEvent !== "string" || !element) {
-        return;
-      }
-      const [isDelegated, callable, typeEvent, opts] = normalizeParameters(originalTypeEvent, handler, delegationFunction, options);
-      const inNamespace = typeEvent !== originalTypeEvent;
-      const events = getElementEvents(element);
-      const storeElementEvent = events[typeEvent] || {};
-      const isNamespace = originalTypeEvent.startsWith(".");
-      if (typeof callable !== "undefined") {
-        if (!storeElementEvent) {
-          return;
-        }
-        removeHandler(element, events, typeEvent, callable, isDelegated ? handler : null, opts);
-        return;
-      }
-      if (isNamespace) {
-        for (const elementEvent of Object.keys(events)) {
-          removeNamespacedHandlers(element, events, elementEvent, originalTypeEvent.slice(1));
-        }
-      }
-      for (const keyHandlers of Object.keys(storeElementEvent)) {
-        const handlerKey = keyHandlers.replace(stripUidRegex, "");
-        if (!inNamespace || originalTypeEvent.includes(handlerKey)) {
-          const event = storeElementEvent[keyHandlers];
-          removeHandler(element, events, typeEvent, event.callable, event.delegationSelector, opts);
-        }
-      }
-    }
-    static dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
-      return dispatch(eventName, { target, detail, bubbles, cancelable });
-    }
-    static trigger(target, eventName, { detail = {}, bubbles = true, cancelable = true } = {}) {
-      return dispatch(eventName, { target, detail, bubbles, cancelable });
-    }
-  }
-  function makeEventUid(element, uid) {
-    return uid && `${uid}::${uidEvent++}` || element.uidEvent || uidEvent++;
-  }
-  function getElementEvents(element) {
-    const uid = makeEventUid(element);
-    element.uidEvent = uid;
-    eventRegistry[uid] = eventRegistry[uid] || {};
-    return eventRegistry[uid];
-  }
-  function findHandler(events, callable, delegationSelector = null) {
-    return Object.values(events).find((event) => event.callable === callable && event.delegationSelector === delegationSelector);
-  }
-  function normalizeParameters(originalTypeEvent, handler, delegationFunction, options) {
-    const isDelegated = typeof handler === "string";
-    const callable = isDelegated ? delegationFunction : handler;
-    const opts = isDelegated ? options : delegationFunction;
-    let typeEvent = getTypeEvent(originalTypeEvent);
-    if (!nativeEvents.has(typeEvent)) {
-      typeEvent = originalTypeEvent;
-    }
-    return [isDelegated, callable, typeEvent, opts];
-  }
-  function addHandler(element, originalTypeEvent, handler, delegationFunction, options, oneOff) {
-    if (typeof originalTypeEvent !== "string" || !element) {
-      return;
-    }
-    let [isDelegated, callable, typeEvent, opts] = normalizeParameters(originalTypeEvent, handler, delegationFunction, options);
-    if (originalTypeEvent in customEvents) {
-      const wrapFunction = (fn2) => {
-        return function(event) {
-          if (!event.relatedTarget || event.relatedTarget !== event.delegateTarget && !event.delegateTarget.contains(event.relatedTarget)) {
-            return fn2.call(this, event);
-          }
-        };
-      };
-      callable = wrapFunction(callable);
-    }
-    const events = getElementEvents(element);
-    const handlers = events[typeEvent] || (events[typeEvent] = {});
-    const previousFunction = findHandler(handlers, callable, isDelegated ? handler : null);
-    if (previousFunction) {
-      previousFunction.oneOff = previousFunction.oneOff && oneOff;
-      return;
-    }
-    const uid = makeEventUid(callable, originalTypeEvent.replace(namespaceRegex, ""));
-    const fn = isDelegated ? internalDelegationHandler(element, handler, callable) : internalHandler(element, callable);
-    fn.delegationSelector = isDelegated ? handler : null;
-    fn.callable = callable;
-    fn.oneOff = oneOff;
-    fn.uidEvent = uid;
-    handlers[uid] = fn;
-    element.addEventListener(typeEvent, fn, opts);
-  }
-  function removeHandler(element, events, typeEvent, handler, delegationSelector, options) {
-    const fn = findHandler(events[typeEvent], handler, delegationSelector);
-    if (!fn) {
-      return;
-    }
-    element.removeEventListener(typeEvent, fn, options);
-    delete events[typeEvent][fn.uidEvent];
-  }
-  function internalHandler(element, fn) {
-    return function handler(event) {
-      event.delegateTarget = element;
-      if (handler.oneOff) {
-        Events.off(element, event.type, fn);
-      }
-      return fn.apply(element, [event]);
-    };
-  }
-  function internalDelegationHandler(element, selector, fn) {
-    return function handler(event) {
-      const domElements = element.querySelectorAll(selector);
-      for (let { target } = event; target && target !== this; target = target.parentNode) {
-        for (const domElement of domElements) {
-          if (domElement !== target) {
-            continue;
-          }
-          event.delegateTarget = target;
-          if (handler.oneOff) {
-            Events.off(element, event.type, selector, fn);
-          }
-          return fn.apply(target, [event]);
-        }
-      }
-    };
-  }
-  function removeNamespacedHandlers(element, events, typeEvent, namespace2) {
-    const storeElementEvent = events[typeEvent] || {};
-    for (const handlerKey of Object.keys(storeElementEvent)) {
-      if (handlerKey.includes(namespace2)) {
-        const event = storeElementEvent[handlerKey];
-        removeHandler(element, events, typeEvent, event.callable, event.delegationSelector);
-      }
-    }
-  }
-  function getTypeEvent(event) {
-    event = event.replace(stripNameRegex, "");
-    return customEvents[event] || event;
-  }
   var SystemStatusCode = {
     networkFailure: 0,
     timeoutFailure: -1,
@@ -1857,46 +1886,6 @@ var __publicField = (obj, key, value) => {
     }
     return data;
   }
-  if (!window.jax) {
-    window.jax = {};
-  }
-  if (!window.jax.AjaxRequest) {
-    window.jax.AjaxRequest = Request;
-    window.jax.AssetManager = AssetManager;
-    window.jax.ajax = Request.send;
-    if (!window.jax.request) {
-      window.jax.request = Request.sendElement;
-    }
-  }
-  function waitFor(predicate, timeout) {
-    return new Promise((resolve, reject) => {
-      const check = () => {
-        if (!predicate()) {
-          return;
-        }
-        clearInterval(interval);
-        resolve();
-      };
-      const interval = setInterval(check, 100);
-      check();
-      if (!timeout) {
-        return;
-      }
-      setTimeout(() => {
-        clearInterval(interval);
-        reject();
-      }, timeout);
-    });
-  }
-  function domReady() {
-    return new Promise((resolve) => {
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => resolve());
-      } else {
-        resolve();
-      }
-    });
-  }
   class JsonParser {
     // Public
     static paramToObj(name, value) {
@@ -2199,7 +2188,10 @@ var __publicField = (obj, key, value) => {
       this.ogElement = element;
       this.element = this.findElement(element);
       if (!this.element) {
-        return Request.send(handler, this.options);
+        return Request.send(
+          this.normalizeHandler(handler),
+          this.options
+        );
       }
       this.assignAsEval("beforeSendFunc", "requestBeforeSend");
       this.assignAsEval("beforeUpdateFunc", "requestBeforeUpdate");
@@ -2229,7 +2221,11 @@ var __publicField = (obj, key, value) => {
       if (!handler) {
         handler = this.getHandlerName();
       }
-      return Request.sendElement(this.element, handler, this.options);
+      return Request.sendElement(
+        this.element,
+        this.normalizeHandler(handler),
+        this.options
+      );
     }
     static fromElement(element, handler, options) {
       if (typeof element === "string") {
@@ -2258,6 +2254,15 @@ var __publicField = (obj, key, value) => {
         return this.element.dataset.dataRequest;
       }
       return this.element.getAttribute("data-request");
+    }
+    normalizeHandler(handler) {
+      if (handler && !isValidHandler(handler)) {
+        if (this.options.url === void 0) {
+          this.options.url = handler;
+        }
+        return "onAjax";
+      }
+      return handler;
     }
     assignAsEval(optionName, name) {
       if (this.options[optionName] !== void 0) {
@@ -2363,23 +2368,263 @@ var __publicField = (obj, key, value) => {
   function normalizeDataKey(key) {
     return key.replace(/[A-Z]/g, (chr) => `-${chr.toLowerCase()}`);
   }
+  function isValidHandler(str) {
+    return /^(?:\w+\:{2})?on[A-Z]{1}[\w+]*$/.test(str);
+  }
+  class Trigger {
+    constructor(element) {
+      this.element = element;
+      this.config = this.parse();
+      this.timer = null;
+      this.throttleTimer = null;
+      this.lastValue = null;
+      this.fired = false;
+      this.throttled = false;
+      this.lastRequest = null;
+    }
+    /**
+     * Parse trigger configuration from element attributes
+     */
+    parse() {
+      let trigger = this.element.dataset.requestTrigger;
+      let poll = this.element.dataset.requestPoll;
+      if (!trigger && this.element.dataset.trackInput !== void 0) {
+        const delay = this.element.dataset.trackInput || 300;
+        trigger = `input changed delay:${delay}`;
+      }
+      if (!trigger && this.element.dataset.autoSubmit !== void 0) {
+        const delay = this.element.dataset.autoSubmit || 0;
+        trigger = delay > 0 ? `load delay:${delay}` : "load";
+      }
+      if (!trigger) {
+        trigger = this.getDefaultTrigger();
+      }
+      const config = this.parseString(trigger);
+      if (poll) {
+        config.poll = this.parseTime(poll);
+      }
+      return config;
+    }
+    /**
+     * Parse trigger string into config object
+     * Format: "event modifier modifier:value"
+     * Example: "input changed delay:500"
+     */
+    parseString(str) {
+      const parts = str.trim().split(/\s+/);
+      const config = {
+        event: parts[0] || "click",
+        delay: 0,
+        throttle: 0,
+        once: false,
+        changed: false,
+        poll: 0
+      };
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+        if (part === "once") {
+          config.once = true;
+        } else if (part === "changed") {
+          config.changed = true;
+        } else if (part.startsWith("delay:")) {
+          config.delay = this.parseTime(part.slice(6));
+        } else if (part.startsWith("throttle:")) {
+          config.throttle = this.parseTime(part.slice(9));
+        }
+      }
+      return config;
+    }
+    /**
+     * Parse time value to milliseconds
+     * Supports: 500, 500ms, 1s, 1.5s
+     */
+    parseTime(value) {
+      if (typeof value === "number") {
+        return value;
+      }
+      value = String(value).trim();
+      if (value.endsWith("ms")) {
+        return parseFloat(value);
+      }
+      if (value.endsWith("s")) {
+        return parseFloat(value) * 1e3;
+      }
+      return parseInt(value, 10) || 0;
+    }
+    /**
+     * Get default trigger based on element type
+     */
+    getDefaultTrigger() {
+      var _a;
+      const el = this.element;
+      const tag = el.tagName.toLowerCase();
+      const type = (_a = el.type) == null ? void 0 : _a.toLowerCase();
+      if (tag === "form")
+        return "submit";
+      if (tag === "a")
+        return "click";
+      if (tag === "button")
+        return "click";
+      if (tag === "select")
+        return "change";
+      if (type === "checkbox" || type === "radio" || type === "file")
+        return "change";
+      if (tag === "input" && (type === "submit" || type === "button"))
+        return "click";
+      if (tag === "input")
+        return "click";
+      return "click";
+    }
+    /**
+     * Check if element is still connected to DOM
+     */
+    isConnected() {
+      return this.element.isConnected;
+    }
+    /**
+     * Bind event listeners for invented events only.
+     * Standard DOM events (click, submit, change, input) are handled
+     * via document-level delegation in Controller.
+     */
+    bind() {
+      const { event } = this.config;
+      if (event === "load") {
+        dispatch("ajax:trigger", { target: this.element });
+      } else if (event === "revealed" || event === "intersect") {
+        this.observeVisibility();
+      }
+    }
+    /**
+     * Handle the trigger event
+     */
+    handleEvent(event) {
+      if (event && event.defaultPrevented) {
+        return;
+      }
+      if (!this.isConnected()) {
+        return;
+      }
+      if (event && (this.config.event === "submit" || this.config.event === "click")) {
+        event.preventDefault();
+      }
+      const { delay, throttle, once, changed } = this.config;
+      if (once && this.fired) {
+        return;
+      }
+      if (changed && !this.hasChanged()) {
+        return;
+      }
+      if (this.timer) {
+        clearTimeout(this.timer);
+        this.timer = null;
+      }
+      if (throttle > 0 && this.throttled) {
+        return;
+      }
+      if (delay > 0) {
+        this.timer = setTimeout(() => this.fire(), delay);
+      } else {
+        this.fire();
+      }
+    }
+    /**
+     * Check if the element value has changed
+     */
+    hasChanged() {
+      const value = this.element.value;
+      if (this.lastValue === value) {
+        return false;
+      }
+      this.lastValue = value;
+      return true;
+    }
+    /**
+     * Fire the actual request
+     */
+    fire() {
+      if (!this.isConnected()) {
+        return;
+      }
+      if (this.lastRequest && this.lastRequest.abort) {
+        this.lastRequest.abort();
+      }
+      this.fired = true;
+      this.lastRequest = RequestBuilder.fromElement(this.element);
+      if (this.config.throttle > 0) {
+        this.throttled = true;
+        this.throttleTimer = setTimeout(() => {
+          this.throttled = false;
+        }, this.config.throttle);
+      }
+    }
+    /**
+     * Observe element visibility for revealed/intersect events
+     */
+    observeVisibility() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!this.isConnected()) {
+            observer.disconnect();
+            return;
+          }
+          if (entry.isIntersecting) {
+            dispatch("ajax:trigger", { target: this.element });
+            if (this.config.once || this.config.event === "intersect") {
+              observer.disconnect();
+            }
+          }
+        });
+      }, {
+        threshold: 0.1
+      });
+      observer.observe(this.element);
+    }
+    /**
+     * Start polling interval
+     */
+    startPolling() {
+      const intervalId = setInterval(() => {
+        if (!this.isConnected()) {
+          clearInterval(intervalId);
+          return;
+        }
+        if (!document.hidden) {
+          dispatch("ajax:trigger", { target: this.element });
+        }
+      }, this.config.poll);
+    }
+  }
   class Controller {
     constructor() {
+      /**
+       * Handle delegated trigger events
+       */
+      __publicField(this, "onTriggerEvent", (event) => {
+        const el = event.delegateTarget;
+        const trigger = this.getTrigger(el);
+        const configEvent = trigger.config.event;
+        if (event.type === "ajax:trigger") {
+          trigger.handleEvent(event);
+          return;
+        }
+        if (event.type === configEvent) {
+          trigger.handleEvent(event);
+        }
+      });
       this.started = false;
-      this.documentVisible = true;
+      this.triggers = /* @__PURE__ */ new WeakMap();
     }
     start() {
       if (!this.started) {
         window.onbeforeunload = this.documentOnBeforeUnload;
+        Events.on(document, "click", "[data-request]", this.onTriggerEvent);
+        Events.on(document, "submit", "[data-request]", this.onTriggerEvent);
+        Events.on(document, "change", "[data-request]", this.onTriggerEvent);
+        Events.on(document, "input", "[data-request]", this.onTriggerEvent);
+        Events.on(document, "ajax:trigger", "[data-request]", this.onTriggerEvent);
         addEventListener("DOMContentLoaded", () => this.render());
         addEventListener("page:updated", () => this.render());
         addEventListener("ajax:update-complete", () => this.render());
-        addEventListener("visibilitychange", () => this.documentOnVisibilityChange());
-        Events.on(document, "submit", "[data-request]", this.documentOnSubmit);
-        Events.on(document, "input", "input[data-request][data-track-input]", this.documentOnKeyup);
-        Events.on(document, "change", "select[data-request], input[type=radio][data-request], input[type=checkbox][data-request], input[type=file][data-request]", this.documentOnChange);
-        Events.on(document, "keydown", "input[type=text][data-request], input[type=submit][data-request], input[type=password][data-request]", this.documentOnKeydown);
-        Events.on(document, "click", "a[data-request], button[data-request], input[type=button][data-request], input[type=submit][data-request]", this.documentOnClick);
         this.started = true;
       }
     }
@@ -2388,204 +2633,105 @@ var __publicField = (obj, key, value) => {
         this.started = false;
       }
     }
-    render(event) {
+    render() {
       Events.dispatch("before-render");
       Events.dispatch("render");
       dispatchEvent(new Event("resize"));
-      this.documentOnRender(event);
+      this.bindCustomTriggers();
     }
-    documentOnVisibilityChange(event) {
-      this.documentVisible = !document.hidden;
-      if (this.documentVisible) {
-        this.documentOnRender();
-      }
-    }
-    documentOnRender(event) {
-      if (!this.documentVisible) {
-        return;
-      }
-      document.querySelectorAll("[data-auto-submit]").forEach(function(el) {
-        const interval = el.dataset.autoSubmit || 0;
-        el.removeAttribute("data-auto-submit");
-        setTimeout(function() {
-          RequestBuilder.fromElement(el);
-        }, interval);
+    /**
+     * Initialize triggers for custom events (load, revealed, intersect)
+     * Native events (click, submit, change, input) are handled by document delegation
+     */
+    bindCustomTriggers() {
+      document.querySelectorAll("[data-request]:not([data-trigger-bound])").forEach((el) => {
+        const trigger = this.getTrigger(el);
+        const eventType = trigger.config.event;
+        if (eventType === "load" || eventType === "revealed" || eventType === "intersect") {
+          el.setAttribute("data-trigger-bound", "");
+          trigger.bind();
+        }
+        if (trigger.config.poll > 0) {
+          el.setAttribute("data-trigger-bound", "");
+          trigger.startPolling();
+        }
       });
     }
-    documentOnSubmit(event) {
-      event.preventDefault();
-      RequestBuilder.fromElement(event.target);
-    }
-    documentOnClick(event) {
-      event.preventDefault();
-      RequestBuilder.fromElement(event.target);
-    }
-    documentOnChange(event) {
-      RequestBuilder.fromElement(event.target);
-    }
-    documentOnKeyup(event) {
-      var el = event.target, lastValue = el.dataset.ocLastValue;
-      if (["email", "number", "password", "search", "text"].indexOf(el.type) === -1) {
-        return;
+    /**
+     * Get or create a Trigger instance for an element
+     */
+    getTrigger(el) {
+      let trigger = this.triggers.get(el);
+      if (!trigger) {
+        trigger = new Trigger(el);
+        this.triggers.set(el, trigger);
       }
-      if (lastValue !== void 0 && lastValue == el.value) {
-        return;
-      }
-      el.dataset.ocLastValue = el.value;
-      if (this.dataTrackInputTimer !== void 0) {
-        clearTimeout(this.dataTrackInputTimer);
-      }
-      var interval = el.getAttribute("data-track-input");
-      if (!interval) {
-        interval = 300;
-      }
-      var self = this;
-      this.dataTrackInputTimer = setTimeout(function() {
-        if (self.lastDataTrackInputRequest) {
-          self.lastDataTrackInputRequest.abort();
-        }
-        self.lastDataTrackInputRequest = RequestBuilder.fromElement(el);
-      }, interval);
-    }
-    documentOnKeydown(event) {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        if (this.dataTrackInputTimer !== void 0) {
-          clearTimeout(this.dataTrackInputTimer);
-        }
-        RequestBuilder.fromElement(event.target);
-      }
+      return trigger;
     }
     documentOnBeforeUnload(event) {
       window.jaxUnloading = true;
     }
   }
-  class Migrate {
-    bind() {
-      this.bindRequestFunc();
-      this.bindRenderFunc();
-      this.bindjQueryEvents();
-    }
-    bindRequestFunc() {
-      var old = $.fn.request;
-      $.fn.request = function(handler, option) {
-        var options = typeof option === "object" ? option : {};
-        return new RequestBuilder(this.get(0), handler, options);
-      };
-      $.fn.request.Constructor = RequestBuilder;
-      $.request = function(handler, option) {
-        return $(document).request(handler, option);
-      };
-      $.fn.request.noConflict = function() {
-        $.fn.request = old;
-        return this;
-      };
-    }
-    bindRenderFunc() {
-      $.fn.render = function(callback) {
-        $(document).on("render", callback);
-      };
-    }
-    bindjQueryEvents() {
-      this.migratejQueryEvent(document, "ajax:setup", "ajaxSetup", ["context"]);
-      this.migratejQueryEvent(document, "ajax:promise", "ajaxPromise", ["context"]);
-      this.migratejQueryEvent(document, "ajax:fail", "ajaxFail", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:done", "ajaxDone", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:always", "ajaxAlways", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:before-redirect", "ajaxRedirect");
-      this.migratejQueryEvent(document, "ajax:update", "ajaxUpdate", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:before-replace", "ajaxBeforeReplace");
-      this.migratejQueryEvent(document, "ajax:before-request", "oc.beforeRequest", ["context"]);
-      this.migratejQueryEvent(document, "ajax:before-update", "ajaxBeforeUpdate", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:request-success", "ajaxSuccess", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:request-complete", "ajaxComplete", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:request-error", "ajaxError", ["context", "message", "responseCode", "xhr"]);
-      this.migratejQueryEvent(document, "ajax:before-validate", "ajaxValidation", ["context", "message", "fields"]);
-      this.migratejQueryEvent(window, "ajax:before-send", "ajaxBeforeSend", ["context"]);
-      this.migratejQueryEvent(window, "ajax:update-complete", "ajaxUpdateComplete", ["context", "data", "responseCode", "xhr"]);
-      this.migratejQueryEvent(window, "ajax:invalid-field", "ajaxInvalidField", ["element", "fieldName", "errorMsg", "isFirst"]);
-      this.migratejQueryEvent(window, "ajax:confirm-message", "ajaxConfirmMessage", ["message", "promise"]);
-      this.migratejQueryEvent(window, "ajax:error-message", "ajaxErrorMessage", ["message"]);
-      this.migratejQueryAttachData(document, "ajax:setup", "a[data-request], button[data-request], form[data-request], a[data-handler], button[data-handler]");
-    }
-    // Private
-    migratejQueryEvent(target, jsName, jqName, detailNames = []) {
-      var self = this;
-      $(target).on(jsName, function(ev) {
-        self.triggerjQueryEvent(ev.originalEvent, jqName, detailNames);
-      });
-    }
-    triggerjQueryEvent(ev, eventName, detailNames = []) {
-      var jQueryEvent = $.Event(eventName), args = this.buildDetailArgs(ev, detailNames);
-      $(ev.target).trigger(jQueryEvent, args);
-      if (jQueryEvent.isDefaultPrevented()) {
-        ev.preventDefault();
-      }
-    }
-    buildDetailArgs(ev, detailNames) {
-      var args = [];
-      detailNames.forEach(function(name) {
-        args.push(ev.detail[name]);
-      });
-      return args;
-    }
-    // For instances where data() is populated in the jQ instance
-    migratejQueryAttachData(target, eventName, selector) {
-      $(target).on(eventName, selector, function(event) {
-        var dataObj = $(this).data("request-data");
-        if (!dataObj) {
-          return;
-        }
-        var options = event.detail.context.options;
-        if (dataObj.constructor === {}.constructor) {
-          Object.assign(options.data, dataObj);
-        } else if (typeof dataObj === "string") {
-          Object.assign(options.data, JsonParser.paramToObj("request-data", dataObj));
-        }
-      });
-    }
-  }
   const controller = new Controller();
-  const namespace = {
+  const AjaxFramework = {
     controller,
     parseJSON: JsonParser.parseJSON,
     serializeAsJSON: FormSerializer.serializeAsJSON,
     requestElement: RequestBuilder.fromElement,
     start() {
       controller.start();
-      if (window.jQuery) {
-        new Migrate().bind();
-      }
     },
     stop() {
       controller.stop();
     }
   };
+  function waitFor(predicate, timeout) {
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        if (!predicate()) {
+          return;
+        }
+        clearInterval(interval);
+        resolve();
+      };
+      const interval = setInterval(check, 100);
+      check();
+      if (!timeout) {
+        return;
+      }
+      setTimeout(() => {
+        clearInterval(interval);
+        reject();
+      }, timeout);
+    });
+  }
+  function domReady() {
+    return new Promise((resolve) => {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => resolve());
+      } else {
+        resolve();
+      }
+    });
+  }
   if (!window.jax) {
     window.jax = {};
   }
-  if (!window.jax.AjaxFramework) {
-    window.jax.AjaxFramework = namespace;
-    window.jax.request = namespace.requestElement;
-    window.jax.parseJSON = namespace.parseJSON;
-    window.jax.values = namespace.serializeAsJSON;
-    window.jax.waitFor = waitFor;
-    window.jax.pageReady = domReady;
-    window.jax.Events = Events;
-    window.jax.dispatch = Events.dispatch;
-    window.jax.trigger = Events.trigger;
-    window.jax.on = Events.on;
-    window.jax.off = Events.off;
-    window.jax.one = Events.one;
-    window.jax.visit = (url) => window.location.assign(url);
-    if (!isAMD() && !isCommonJS()) {
-      namespace.start();
-    }
-  }
-  function isAMD() {
-    return typeof define == "function" && define.amd;
-  }
-  function isCommonJS() {
-    return typeof exports == "object" && typeof module != "undefined";
-  }
+  window.jax.AjaxRequest = Request;
+  window.jax.AssetManager = AssetManager;
+  window.jax.ajax = Request.send;
+  window.jax.AjaxFramework = AjaxFramework;
+  window.jax.request = AjaxFramework.requestElement;
+  window.jax.parseJSON = AjaxFramework.parseJSON;
+  window.jax.values = AjaxFramework.serializeAsJSON;
+  window.jax.Events = Events;
+  window.jax.dispatch = Events.dispatch;
+  window.jax.trigger = Events.trigger;
+  window.jax.on = Events.on;
+  window.jax.off = Events.off;
+  window.jax.one = Events.one;
+  window.jax.waitFor = waitFor;
+  window.jax.pageReady = domReady;
+  window.jax.visit = (url) => window.location.assign(url);
+  AjaxFramework.start();
 })();

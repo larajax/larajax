@@ -19,3 +19,4 @@ resources/test.html
 
 # Build cache
 .cache
+.npmrc
