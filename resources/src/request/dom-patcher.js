@@ -29,7 +29,7 @@ export class DomPatcher
         const partials = this.envelope.getPartials();
 
         partials.forEach((partial) => {
-            const selector = this.partialMap[partial.name];
+            let selector = this.partialMap[partial.name];
             let selectedEl = [];
 
             // If the update options has a _self, values like true and '^' will resolve to the partial element,
