@@ -1,6 +1,6 @@
 {
     "name": "larajax",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "description": "Laravel implementation of the October AJAX server logic.",
     "type": "module",
     "main": "./src/index.js",
