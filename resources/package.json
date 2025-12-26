@@ -5,6 +5,7 @@
     "type": "module",
     "main": "./src/index.js",
     "module": "./src/index.js",
+    "types": "./types/index.d.ts",
     "sideEffects": false,
     "devDependencies": {
         "esbuild": "^0.24.0"
