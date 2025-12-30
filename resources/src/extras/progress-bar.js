@@ -19,7 +19,7 @@ export class ProgressBar
 
     static get defaultCSS() {
         return unindent `
-        .oc-progress-bar {
+        .jax-progress-bar {
             position: fixed;
             display: block;
             top: 0;
@@ -131,7 +131,7 @@ export class ProgressBar
 
     createProgressElement() {
         const element = document.createElement('div');
-        element.className = 'oc-progress-bar';
+        element.className = 'jax-progress-bar';
         return element;
     }
 }

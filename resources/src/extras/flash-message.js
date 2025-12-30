@@ -14,7 +14,7 @@ export class FlashMessage
 
     static get defaultCSS() {
         return unindent `
-        .oc-flash-message {
+        .jax-flash-message {
             display: flex;
             position: fixed;
             z-index: 10300;
@@ -31,7 +31,7 @@ export class FlashMessage
             transform: scale(0.9);
         }
         @media (max-width: 768px) {
-            .oc-flash-message {
+            .jax-flash-message {
                 left: 1rem;
                 right: 1rem;
                 top: 1rem;
@@ -39,30 +39,30 @@ export class FlashMessage
                 width: auto;
             }
         }
-        .oc-flash-message.flash-show {
+        .jax-flash-message.flash-show {
             opacity: 1;
             transform: scale(1);
         }
-        .oc-flash-message.loading {
+        .jax-flash-message.loading {
             transition: opacity 0.2s;
             transform: scale(1);
         }
-        .oc-flash-message.success {
+        .jax-flash-message.success {
             background: #86cb43;
         }
-        .oc-flash-message.error {
+        .jax-flash-message.error {
             background: #cc3300;
         }
-        .oc-flash-message.warning {
+        .jax-flash-message.warning {
             background: #f0ad4e;
         }
-        .oc-flash-message.info, .oc-flash-message.loading {
+        .jax-flash-message.info, .jax-flash-message.loading {
             background: #5fb6f5;
         }
-        .oc-flash-message span.flash-message {
+        .jax-flash-message span.flash-message {
             flex-grow: 1;
         }
-        .oc-flash-message a.flash-close {
+        .jax-flash-message a.flash-close {
             box-sizing: content-box;
             width: 1em;
             height: 1em;
@@ -74,33 +74,33 @@ export class FlashMessage
             text-decoration: none;
             cursor: pointer;
         }
-        .oc-flash-message a.flash-close:hover,
-        .oc-flash-message a.flash-close:focus {
+        .jax-flash-message a.flash-close:hover,
+        .jax-flash-message a.flash-close:focus {
             opacity: 1;
         }
-        .oc-flash-message.loading a.flash-close {
+        .jax-flash-message.loading a.flash-close {
             display: none;
         }
-        .oc-flash-message span.flash-loader {
+        .jax-flash-message span.flash-loader {
             margin-right: 1em;
         }
-        .oc-flash-message span.flash-loader:after {
+        .jax-flash-message span.flash-loader:after {
             position: relative;
             top: 2px;
             content: '';
             display: inline-block;
             height: 1.2em;
             width: 1.2em;
-            animation: oc-flash-loader 0.8s infinite linear;
+            animation: jax-flash-loader 0.8s infinite linear;
             border: .2em solid currentColor;
             border-right-color: transparent;
             border-radius: 50%;
             opacity: .5;
         }
-        html[data-turbo-preview] .oc-flash-message {
+        html[data-turbo-preview] .jax-flash-message {
             opacity: 0;
         }
-        @keyframes oc-flash-loader {
+        @keyframes jax-flash-loader {
             0% { transform: rotate(0deg); }
             100%  { transform: rotate(360deg); }
         }
@@ -280,7 +280,7 @@ export class FlashMessage
         this.clearQueue();
         this.displayedMessage = null;
 
-        document.querySelectorAll('.oc-flash-message, [data-control=flash-message]').forEach((el) => {
+        document.querySelectorAll('.jax-flash-message, [data-control=flash-message]').forEach((el) => {
             el.remove();
         });
     }
@@ -289,7 +289,7 @@ export class FlashMessage
         const element = document.createElement('div');
         const loadingHtml = type === 'loading' ? '<span class="flash-loader"></span>' : '';
         const closeHtml = '<a class="flash-close"></a>';
-        element.className = 'oc-flash-message ' + type;
+        element.className = 'jax-flash-message ' + type;
         element.innerHTML = loadingHtml + '<span class="flash-message">' + message + '</span>' + closeHtml;
         return element;
     }
@@ -309,13 +309,13 @@ export class FlashMessage
     }
 
     createMessagesElement() {
-        const found = document.querySelector('.oc-flash-messages')
+        const found = document.querySelector('.jax-flash-messages')
         if (found) {
             return found;
         }
 
         const element = document.createElement('div');
-        element.className = 'oc-flash-messages';
+        element.className = 'jax-flash-messages';
         document.body.appendChild(element);
         return element;
     }

@@ -9,11 +9,11 @@ export class Validator
         }
 
         form.querySelectorAll('[data-validate-for]').forEach(function(el) {
-            el.classList.remove('oc-visible');
+            el.classList.remove('jax-visible');
         });
 
         form.querySelectorAll('[data-validate-error]').forEach(function(el) {
-            el.classList.remove('oc-visible');
+            el.classList.remove('jax-visible');
         });
     }
 
@@ -37,13 +37,13 @@ export class Validator
                     field.dataset.emptyMode = true;
                     field.innerHTML = fieldMessages.join(', ');
                 }
-                field.classList.add('oc-visible');
+                field.classList.add('jax-visible');
             }
         }
 
         var container = form.querySelector('[data-validate-error]');
         if (container) {
-            container.classList.add('oc-visible');
+            container.classList.add('jax-visible');
 
             // Messages found inside the container
             var oldMessages = container.querySelectorAll('[data-message]');

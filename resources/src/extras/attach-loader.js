@@ -10,20 +10,20 @@ export class AttachLoader
 
     static get defaultCSS() {
         return unindent `
-        .ajax-attach-loader:after {
+        .jax-attach-loader:after {
             content: '';
             display: inline-block;
             vertical-align: middle;
             margin-left: .4em;
             height: 1em;
             width: 1em;
-            animation: ajax-rotate-loader 0.8s infinite linear;
+            animation: jax-rotate-loader 0.8s infinite linear;
             border: .2em solid currentColor;
             border-right-color: transparent;
             border-radius: 50%;
             opacity: .5;
         }
-        @keyframes ajax-rotate-loader {
+        @keyframes jax-rotate-loader {
             0% { transform: rotate(0deg); }
             100%  { transform: rotate(360deg); }
         }
@@ -50,34 +50,34 @@ export class AttachLoader
 
         if (isElementInput(el)) {
             const loadEl = document.createElement('span');
-            loadEl.className = 'ajax-attach-loader is-inline';
+            loadEl.className = 'jax-attach-loader is-inline';
             el.parentNode.insertBefore(loadEl, el.nextSibling); // insertAfter
         }
         else {
-            el.classList.add('ajax-attach-loader');
+            el.classList.add('jax-attach-loader');
             el.disabled = true;
         }
     }
 
     hide(el) {
         if (isElementInput(el)) {
-            if (el.nextElementSibling && el.nextElementSibling.classList.contains('ajax-attach-loader')) {
+            if (el.nextElementSibling && el.nextElementSibling.classList.contains('jax-attach-loader')) {
                 el.nextElementSibling.remove();
             }
         }
         else {
-            el.classList.remove('ajax-attach-loader');
+            el.classList.remove('jax-attach-loader');
             el.disabled = false;
         }
     }
 
     hideAll() {
-        document.querySelectorAll('.ajax-attach-loader.is-inline').forEach((el) => {
+        document.querySelectorAll('.jax-attach-loader.is-inline').forEach((el) => {
             el.remove();
         });
 
-        document.querySelectorAll('.ajax-attach-loader').forEach((el) => {
-            el.classList.remove('ajax-attach-loader');
+        document.querySelectorAll('.jax-attach-loader').forEach((el) => {
+            el.classList.remove('jax-attach-loader');
             el.disabled = false;
         });
     }
