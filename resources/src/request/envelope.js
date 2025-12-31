@@ -86,10 +86,11 @@ export class Envelope
             }
 
             for (const asset of assets) {
-                // Each asset is { url, attributes }
-                if (!seen[type].has(asset.url)) {
-                    seen[type].add(asset.url);
-                    out[type].push(asset);
+                // Handle both string and { url, attributes } formats
+                const url = typeof asset === 'string' ? asset : asset.url;
+                if (!seen[type].has(url)) {
+                    seen[type].add(url);
+                    out[type].push(typeof asset === 'string' ? { url: asset } : asset);
                 }
             }
         }

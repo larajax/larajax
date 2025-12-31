@@ -2,7 +2,7 @@ export class AssetManager
 {
     /**
      * Load a collection of assets.
-     * @param {{js?: Array<string|{url: string, attributes?: object}>, css?: Array<string|{url: string, attributes?: object}>, img?: Array<string|{url: string, attributes?: object}>}} collection
+     * @param {{js?: Array<{url: string, attributes?: object}>, css?: Array<{url: string, attributes?: object}>, img?: Array<{url: string, attributes?: object}>}} collection
      * @param {(err?: Error) => void} [callback]  // optional; called on success or with error
      * @returns {Promise<void>}
      */
@@ -18,9 +18,9 @@ export class AssetManager
     }
 
     async loadCollection(collection = {}) {
-        const jsList  = (collection.js  ?? []).map(normalizeAsset).filter(asset => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
-        const cssList = (collection.css ?? []).map(normalizeAsset).filter(asset => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
-        const imgList = (collection.img ?? []).map(normalizeAsset);
+        const jsList  = (collection.js  ?? []).filter(asset => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+        const cssList = (collection.css ?? []).filter(asset => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
+        const imgList = collection.img ?? [];
 
         if (!jsList.length && !cssList.length && !imgList.length) {
             return;
@@ -103,11 +103,6 @@ export class AssetManager
             img.src = url;
         })));
     }
-}
-
-// Normalize asset entry: string -> { url }, object -> as-is
-function normalizeAsset(asset) {
-    return typeof asset === 'string' ? { url: asset } : asset;
 }
 
 // Minimal escaping for querySelector
