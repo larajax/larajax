@@ -359,8 +359,7 @@ var jax = (() => {
       return {
         method: "POST",
         url: this.options.url ? this.options.url : window.location.href,
-        headers: this.buildHeaders(),
-        responseType: this.options.download === false ? "" : "blob"
+        headers: this.buildHeaders()
       };
     }
     // Private
@@ -811,7 +810,7 @@ var jax = (() => {
       if (!this.delegate.applicationAllowsUpdate(data, responseCode, xhr)) {
         return;
       }
-      if (this.delegate.options.download && data instanceof Blob) {
+      if (data instanceof Blob) {
         this.invoke("handleFileDownload", [data, xhr]);
         this.delegate.notifyApplicationRequestSuccess(data, responseCode, xhr);
         this.invokeFunc("successFunc", data);
@@ -1080,7 +1079,7 @@ var jax = (() => {
         window.open(window.URL.createObjectURL(data), this.options.browserTarget);
         return;
       }
-      const fileName = typeof this.options.download === "string" ? this.options.download : getFilenameFromHttpResponse(xhr);
+      const fileName = getFilenameFromHttpResponse(xhr);
       if (!fileName) {
         return;
       }
@@ -1356,7 +1355,6 @@ var jax = (() => {
       this.options = options;
       this.headers = options.headers || {};
       this.method = options.method || "GET";
-      this.responseType = options.responseType || "";
       this.data = options.data;
       this.timeout = options.timeout || 0;
       this.controller = new AbortController();
@@ -1405,19 +1403,21 @@ var jax = (() => {
     }
     async handleResponse(response) {
       const contentType = response.headers.get("Content-Type");
-      let data;
-      if (this.responseType === "blob") {
-        data = await this.processResponseBlob(response);
-      } else {
-        data = await response.text();
-      }
-      const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
+      const contentDisposition = response.headers.get("Content-Disposition") || "";
       if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
         this.failed = true;
         this.notifyApplicationAfterRequestEnd();
         this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
         this.destroy();
         return;
+      }
+      let responseData;
+      if (contentDisposition.startsWith("attachment") || contentDisposition.startsWith("inline")) {
+        responseData = await response.blob();
+      } else if (contentTypeIsJSON(contentType)) {
+        responseData = await response.json();
+      } else {
+        responseData = await response.text();
       }
       if (response.status >= 200 && response.status < 300) {
         this.notifyApplicationAfterRequestEnd();
@@ -1433,14 +1433,6 @@ var jax = (() => {
         this.delegate.requestFailedWithStatusCode(response.status, responseData);
         this.destroy();
       }
-    }
-    async processResponseBlob(response) {
-      const contentDisposition = response.headers.get("Content-Disposition") || "";
-      if (contentDisposition.indexOf("attachment") === 0 || contentDisposition.indexOf("inline") === 0) {
-        return await response.blob();
-      }
-      const blob = await response.blob();
-      return await blob.text();
     }
     getRedirectLocation(response) {
       const ajaxLocation = response.headers.get("X-AJAX-LOCATION");
@@ -1671,7 +1663,6 @@ var jax = (() => {
         update: {},
         files: false,
         bulk: false,
-        download: false,
         browserTarget: null,
         browserValidate: false,
         browserRedirectBack: false,
@@ -1713,8 +1704,8 @@ var jax = (() => {
           this.options.query !== true ? this.options.query : JSON.parse(dataObj.getAsJsonData())
         ]);
       }
-      const { url, headers, method, responseType } = Options.fetch(this.handler, this.options);
-      this.request = new HttpRequest(this, url, { method, headers, responseType, data, trackAbort: true });
+      const { url, headers, method } = Options.fetch(this.handler, this.options);
+      this.request = new HttpRequest(this, url, { method, headers, data, trackAbort: true });
       this.promise = cancellablePromise();
       this.isRedirect = this.options.redirect && this.options.redirect.length > 0;
       this.notifyApplicationBeforeSend();
@@ -2274,7 +2265,6 @@ var jax = (() => {
       this.assignAsData("bulk", "requestBulk", { emptyAsTrue: true });
       this.assignAsData("files", "requestFiles", { emptyAsTrue: true });
       this.assignAsData("flash", "requestFlash", { emptyAsTrue: true });
-      this.assignAsData("download", "requestDownload", { emptyAsTrue: true });
       this.assignAsData("update", "requestUpdate", { parseJson: true });
       this.assignAsData("query", "requestQuery", { emptyAsTrue: true, parseJson: true });
       this.assignAsData("browserTarget", "browserTarget");
