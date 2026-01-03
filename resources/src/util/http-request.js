@@ -22,7 +22,6 @@ export class HttpRequest
 
         this.headers = options.headers || {};
         this.method = options.method || 'GET';
-        this.responseType = options.responseType || '';
         this.data = options.data;
         this.timeout = options.timeout || 0;
 
@@ -90,18 +89,7 @@ export class HttpRequest
 
     async handleResponse(response) {
         const contentType = response.headers.get('Content-Type');
-
-        // Get response data based on type
-        let data;
-        if (this.responseType === 'blob') {
-            data = await this.processResponseBlob(response);
-        }
-        else {
-            data = await response.text();
-        }
-
-        // Parse JSON if applicable
-        const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
+        const contentDisposition = response.headers.get('Content-Disposition') || '';
 
         // Check HTML-only constraint
         if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
@@ -110,6 +98,18 @@ export class HttpRequest
             this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
             this.destroy();
             return;
+        }
+
+        // Get response data based on content type
+        let responseData;
+        if (contentDisposition.startsWith('attachment') || contentDisposition.startsWith('inline')) {
+            responseData = await response.blob();
+        }
+        else if (contentTypeIsJSON(contentType)) {
+            responseData = await response.json();
+        }
+        else {
+            responseData = await response.text();
         }
 
         // Check status code
@@ -128,19 +128,6 @@ export class HttpRequest
             this.delegate.requestFailedWithStatusCode(response.status, responseData);
             this.destroy();
         }
-    }
-
-    async processResponseBlob(response) {
-        const contentDisposition = response.headers.get('Content-Disposition') || '';
-
-        // If it's an attachment/inline download, return the blob directly
-        if (contentDisposition.indexOf('attachment') === 0 || contentDisposition.indexOf('inline') === 0) {
-            return await response.blob();
-        }
-
-        // Otherwise convert blob to text
-        const blob = await response.blob();
-        return await blob.text();
     }
 
     getRedirectLocation(response) {

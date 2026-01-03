@@ -90,8 +90,8 @@ export class Request
         }
 
         // Prepare request
-        const { url, headers, method, responseType } = Options.fetch(this.handler, this.options);
-        this.request = new HttpRequest(this, url, { method, headers, responseType, data, trackAbort: true });
+        const { url, headers, method } = Options.fetch(this.handler, this.options);
+        this.request = new HttpRequest(this, url, { method, headers, data, trackAbort: true });
         this.promise = cancellablePromise();
         this.isRedirect = this.options.redirect && this.options.redirect.length > 0;
 
