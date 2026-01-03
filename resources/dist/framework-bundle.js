@@ -1,11 +1,9 @@
-var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => {
-  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-  return value;
-};
-(function() {
-  "use strict";
+var jax = (() => {
+  var __defProp = Object.defineProperty;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+
+  // src/util/index.js
   function dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
     const event = new CustomEvent(eventName, { detail, bubbles, cancelable });
     target.dispatchEvent(event);
@@ -45,16 +43,18 @@ var __publicField = (obj, key, value) => {
       }
     }).join("");
   }
-  const namespaceRegex = /[^.]*(?=\..*)\.|.*/;
-  const stripNameRegex = /\..*/;
-  const stripUidRegex = /::\d+$/;
-  const eventRegistry = {};
-  let uidEvent = 1;
-  const customEvents = {
+
+  // src/util/events.js
+  var namespaceRegex = /[^.]*(?=\..*)\.|.*/;
+  var stripNameRegex = /\..*/;
+  var stripUidRegex = /::\d+$/;
+  var eventRegistry = {};
+  var uidEvent = 1;
+  var customEvents = {
     mouseenter: "mouseover",
     mouseleave: "mouseout"
   };
-  const nativeEvents = /* @__PURE__ */ new Set([
+  var nativeEvents = /* @__PURE__ */ new Set([
     "click",
     "dblclick",
     "mouseup",
@@ -102,7 +102,7 @@ var __publicField = (obj, key, value) => {
     "abort",
     "scroll"
   ]);
-  class Events {
+  var Events = class {
     static on(element, event, handler, delegationFunction, options) {
       addHandler(element, event, handler, delegationFunction, options, false);
     }
@@ -144,7 +144,7 @@ var __publicField = (obj, key, value) => {
     static trigger(target, eventName, { detail = {}, bubbles = true, cancelable = true } = {}) {
       return dispatch(eventName, { target, detail, bubbles, cancelable });
     }
-  }
+  };
   function makeEventUid(element, uid) {
     return uid && `${uid}::${uidEvent++}` || element.uidEvent || uidEvent++;
   }
@@ -245,7 +245,9 @@ var __publicField = (obj, key, value) => {
     event = event.replace(stripNameRegex, "");
     return customEvents[event] || event;
   }
-  class Envelope {
+
+  // src/request/envelope.js
+  var Envelope = class {
     constructor(response = {}, status = 200) {
       const {
         __ajax: body,
@@ -285,7 +287,7 @@ var __publicField = (obj, key, value) => {
       if (!type) {
         return this.ops;
       }
-      return this.ops.filter((o) => (o == null ? void 0 : o.op) === type);
+      return this.ops.filter((o) => o?.op === type);
     }
     getFlash() {
       return this.getOps("flash").map(({ level = "info", text = "" }) => ({ level, text }));
@@ -316,9 +318,10 @@ var __publicField = (obj, key, value) => {
           continue;
         }
         for (const asset of assets) {
-          if (!seen[type].has(asset.url)) {
-            seen[type].add(asset.url);
-            out[type].push(asset);
+          const url = typeof asset === "string" ? asset : asset.url;
+          if (!seen[type].has(url)) {
+            seen[type].add(url);
+            out[type].push(typeof asset === "string" ? { url: asset } : asset);
           }
         }
       }
@@ -326,13 +329,15 @@ var __publicField = (obj, key, value) => {
     }
     getRedirectUrl() {
       const op = this.getOps("redirect")[0];
-      return (op == null ? void 0 : op.url) || this.redirect || null;
+      return op?.url || this.redirect || null;
     }
     getReload() {
       return this.getOps("reload")[0] || null;
     }
-  }
-  class Options {
+  };
+
+  // src/request/options.js
+  var Options = class {
     constructor(handler, options) {
       if (!handler) {
         throw new Error("The request handler name is not specified.");
@@ -425,25 +430,27 @@ var __publicField = (obj, key, value) => {
       }
       return cookieValue;
     }
-  }
-  class AssetManager {
+  };
+
+  // src/request/asset-manager.js
+  var AssetManager = class _AssetManager {
     /**
      * Load a collection of assets.
-     * @param {{js?: Array<string|{url: string, attributes?: object}>, css?: Array<string|{url: string, attributes?: object}>, img?: Array<string|{url: string, attributes?: object}>}} collection
+     * @param {{js?: Array<{url: string, attributes?: object}>, css?: Array<{url: string, attributes?: object}>, img?: Array<{url: string, attributes?: object}>}} collection
      * @param {(err?: Error) => void} [callback]  // optional; called on success or with error
      * @returns {Promise<void>}
      */
     static load(collection = {}, callback) {
-      const manager = new AssetManager(), promise = manager.loadCollection(collection);
+      const manager = new _AssetManager(), promise = manager.loadCollection(collection);
       if (typeof callback === "function") {
         promise.then(() => callback());
       }
       return promise;
     }
     async loadCollection(collection = {}) {
-      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
-      const cssList = (collection.css ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
-      const imgList = (collection.img ?? []).map(normalizeAsset);
+      const jsList = (collection.js ?? []).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+      const cssList = (collection.css ?? []).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
+      const imgList = collection.img ?? [];
       if (!jsList.length && !cssList.length && !imgList.length) {
         return;
       }
@@ -485,8 +492,7 @@ var __publicField = (obj, key, value) => {
           }
           el.src = url;
           for (const [key, value] of Object.entries(attributes)) {
-            if (key === "type")
-              continue;
+            if (key === "type") continue;
             if (value === true) {
               el.setAttribute(key, "");
             } else if (value !== false && value != null) {
@@ -500,8 +506,7 @@ var __publicField = (obj, key, value) => {
       }, Promise.resolve());
     }
     loadImages(list) {
-      if (!list.length)
-        return Promise.resolve();
+      if (!list.length) return Promise.resolve();
       return Promise.all(list.map((asset) => new Promise((resolve, reject) => {
         const { url } = asset;
         const img = new Image();
@@ -510,20 +515,19 @@ var __publicField = (obj, key, value) => {
         img.src = url;
       })));
     }
-  }
-  function normalizeAsset(asset) {
-    return typeof asset === "string" ? { url: asset } : asset;
-  }
+  };
   function htmlEscape(value) {
     return String(value).replace(/"/g, '\\"');
   }
+
+  // src/request/dom-patcher.js
   var DomUpdateMode = {
     replaceWith: "replace",
     prepend: "prepend",
     append: "append",
     update: "innerHTML"
   };
-  class DomPatcher {
+  var DomPatcher = class {
     constructor(envelope, partialMap, options = {}) {
       this.options = options;
       this.envelope = envelope;
@@ -607,7 +611,7 @@ var __publicField = (obj, key, value) => {
         this.afterUpdateCallback(element);
       }
     }
-  }
+  };
   function resolveSelectorResponse(selector, partialSelector) {
     if (selector === true) {
       return document.querySelectorAll(partialSelector);
@@ -662,6 +666,8 @@ var __publicField = (obj, key, value) => {
       container.removeChild(newScript);
     });
   }
+
+  // src/util/referrer.js
   function getReferrerUrl() {
     const url = jax.useTurbo && jax.useTurbo() ? jax.AjaxTurbo.controller.getLastVisitUrl() : getReferrerFromSameOrigin();
     if (!url || isSameBaseUrl(url)) {
@@ -690,6 +696,8 @@ var __publicField = (obj, key, value) => {
     const givenUrl = new URL(url, window.location.origin), currentUrl = new URL(window.location.href);
     return givenUrl.origin === currentUrl.origin && givenUrl.pathname === currentUrl.pathname;
   }
+
+  // src/util/promise.js
   function decoratePromiseProxy(fn, ctx = null) {
     return (...args) => {
       const p = Promise.resolve().then(() => fn.apply(ctx, args));
@@ -726,12 +734,10 @@ var __publicField = (obj, key, value) => {
       rejectFn = reject;
       executor(
         (value) => {
-          if (!hasCanceled)
-            resolve(value);
+          if (!hasCanceled) resolve(value);
         },
         (error) => {
-          if (!hasCanceled)
-            reject(error);
+          if (!hasCanceled) reject(error);
         },
         (onCancel) => {
           cancelHandler = onCancel;
@@ -758,7 +764,9 @@ var __publicField = (obj, key, value) => {
     };
     return decoratePromise(promise);
   }
-  class Actions {
+
+  // src/request/actions.js
+  var Actions = class {
     constructor(delegate, context, options) {
       this.el = delegate.el;
       this.delegate = delegate;
@@ -794,7 +802,6 @@ var __publicField = (obj, key, value) => {
       }
     }
     async success(data, responseCode, xhr) {
-      var _a;
       if (this.invoke("beforeUpdate", [data, responseCode, xhr]) === false) {
         return;
       }
@@ -810,7 +817,7 @@ var __publicField = (obj, key, value) => {
         this.invokeFunc("successFunc", data);
         return;
       }
-      if (!((_a = data.$env) == null ? void 0 : _a.isFatal())) {
+      if (!data.$env?.isFatal()) {
         await this.invoke("handleUpdateOperations", [data, responseCode, xhr]);
         await this.invoke("handleUpdateResponse", [data, responseCode, xhr]);
       }
@@ -818,13 +825,12 @@ var __publicField = (obj, key, value) => {
       this.invokeFunc("successFunc", data);
     }
     async error(data, responseCode, xhr) {
-      var _a, _b;
-      let errorMsg = (_a = data.$env) == null ? void 0 : _a.getMessage();
+      let errorMsg = data.$env?.getMessage();
       if (window.jaxUnloading !== void 0 && window.jaxUnloading) {
         return;
       }
       this.delegate.toggleRedirect(false);
-      if (!((_b = data.$env) == null ? void 0 : _b.isFatal())) {
+      if (!data.$env?.isFatal()) {
         await this.invoke("handleUpdateOperations", [data, responseCode, xhr]);
         await this.invoke("handleUpdateResponse", [data, responseCode, xhr]);
       } else {
@@ -945,7 +951,7 @@ var __publicField = (obj, key, value) => {
       }
       let defaultPrevented = false;
       for (const dispatched of events) {
-        const isAsync = (dispatched == null ? void 0 : dispatched.async) === true;
+        const isAsync = dispatched?.async === true;
         if (isAsync) {
           await new Promise((outerResolve, outerReject) => {
             let settled = false;
@@ -966,7 +972,7 @@ var __publicField = (obj, key, value) => {
               context: this.context,
               promise: { resolve, reject }
             });
-            if (event == null ? void 0 : event.defaultPrevented) {
+            if (event?.defaultPrevented) {
               defaultPrevented = true;
             }
           });
@@ -975,8 +981,7 @@ var __publicField = (obj, key, value) => {
             ...dispatched.detail || {},
             context: this.context
           });
-          if (event == null ? void 0 : event.defaultPrevented)
-            defaultPrevented = true;
+          if (event?.defaultPrevented) defaultPrevented = true;
         }
       }
       return defaultPrevented;
@@ -1040,32 +1045,31 @@ var __publicField = (obj, key, value) => {
       }, 0);
     }
     async handleUpdateOperations(data, responseCode, xhr) {
-      var _a, _b, _c, _d, _e, _f, _g;
-      const flashMessages = this.delegate.options.flash ? (_a = data.$env) == null ? void 0 : _a.getFlash() : null;
+      const flashMessages = this.delegate.options.flash ? data.$env?.getFlash() : null;
       if (flashMessages) {
         for (var flashMessage in flashMessages) {
           this.invoke("handleFlashMessage", [flashMessage.text, flashMessage.level]);
         }
       }
-      const browserEvents = (_b = data.$env) == null ? void 0 : _b.getBrowserEvents();
+      const browserEvents = data.$env?.getBrowserEvents();
       if (browserEvents && await this.invoke("handleBrowserEvents", [browserEvents])) {
         return;
       }
-      const redirectUrl = (_c = data.$env) == null ? void 0 : _c.getRedirectUrl();
+      const redirectUrl = data.$env?.getRedirectUrl();
       if (redirectUrl) {
         this.delegate.toggleRedirect(redirectUrl);
       }
       if (this.delegate.isRedirect) {
         this.invoke("handleRedirectResponse", [this.delegate.options.redirect]);
       }
-      if ((_d = data.$env) == null ? void 0 : _d.getReload()) {
+      if (data.$env?.getReload()) {
         this.invoke("handleReloadResponse");
       }
-      const invalidFields = (_e = data.$env) == null ? void 0 : _e.getInvalid();
+      const invalidFields = data.$env?.getInvalid();
       if (invalidFields) {
-        this.invoke("handleValidationMessage", [(_f = data.$env) == null ? void 0 : _f.getMessage(), invalidFields]);
+        this.invoke("handleValidationMessage", [data.$env?.getMessage(), invalidFields]);
       }
-      const loadAssets = (_g = data.$env) == null ? void 0 : _g.getAssets();
+      const loadAssets = data.$env?.getAssets();
       if (loadAssets) {
         await AssetManager.load(loadAssets);
       }
@@ -1114,7 +1118,7 @@ var __publicField = (obj, key, value) => {
         localStorage.setItem("ocPushStateReferrer", newUrl);
       }
     }
-  }
+  };
   function getFilenameFromHttpResponse(xhr) {
     const contentDisposition = xhr.getResponseHeader("Content-Disposition");
     if (!contentDisposition) {
@@ -1131,16 +1135,18 @@ var __publicField = (obj, key, value) => {
     }
     return null;
   }
-  class FormSerializer {
+
+  // src/util/form-serializer.js
+  var FormSerializer = class _FormSerializer {
     // Public
     static assignToObj(obj, name, value) {
-      new FormSerializer().assignObjectInternal(obj, name, value);
+      new _FormSerializer().assignObjectInternal(obj, name, value);
     }
     static serializeAsJSON(element) {
       if (typeof element === "string") {
         element = document.querySelector(element);
       }
-      return new FormSerializer().parseContainer(element);
+      return new _FormSerializer().parseContainer(element);
     }
     // Private
     parseContainer(element) {
@@ -1207,8 +1213,10 @@ var __publicField = (obj, key, value) => {
       }
       return elements;
     }
-  }
-  class Data {
+  };
+
+  // src/request/data.js
+  var Data = class {
     constructor(userData, targetEl, formEl) {
       this.userData = userData || {};
       this.targetEl = targetEl;
@@ -1245,7 +1253,7 @@ var __publicField = (obj, key, value) => {
     }
     // Private
     appendSingleInputElement(requestData) {
-      if (this.formEl || !this.targetEl || !isElementInput$1(this.targetEl)) {
+      if (this.formEl || !this.targetEl || !isElementInput(this.targetEl)) {
         return;
       }
       const inputName = this.targetEl.name;
@@ -1324,21 +1332,25 @@ var __publicField = (obj, key, value) => {
       }
       return val;
     }
-  }
-  function isElementInput$1(el) {
+  };
+  function isElementInput(el) {
     return ["input", "select", "textarea"].includes((el.tagName || "").toLowerCase());
   }
+
+  // src/util/http-request.js
   var SystemStatusCode = {
     networkFailure: 0,
     timeoutFailure: -1,
     contentTypeMismatch: -2,
     userAborted: -3
   };
-  class HttpRequest {
+  var HttpRequest = class {
     constructor(delegate, url, options) {
       this.failed = false;
       this.progress = 0;
       this.sent = false;
+      this.aborted = false;
+      this.timedOut = false;
       this.delegate = delegate;
       this.url = url;
       this.options = options;
@@ -1347,66 +1359,129 @@ var __publicField = (obj, key, value) => {
       this.responseType = options.responseType || "";
       this.data = options.data;
       this.timeout = options.timeout || 0;
-      this.requestProgressed = (event) => {
-        if (event.lengthComputable) {
-          this.setProgress(event.loaded / event.total);
-        }
-      };
-      this.requestLoaded = () => {
-        this.endRequest((xhr) => {
-          this.processResponseData(xhr, (xhr2, data) => {
-            const contentType = xhr2.getResponseHeader("Content-Type");
-            const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
-            if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
-              this.failed = true;
-              this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
-              return;
-            }
-            if (xhr2.status >= 200 && xhr2.status < 300) {
-              this.delegate.requestCompletedWithResponse(responseData, xhr2.status, contentResponseIsRedirect(xhr2, this.url));
-            } else {
-              this.failed = true;
-              this.delegate.requestFailedWithStatusCode(xhr2.status, responseData);
-            }
-          });
-        });
-      };
-      this.requestFailed = () => {
-        this.endRequest(() => {
-          this.failed = true;
-          this.delegate.requestFailedWithStatusCode(SystemStatusCode.networkFailure);
-        });
-      };
-      this.requestTimedOut = () => {
-        this.endRequest(() => {
-          this.failed = true;
-          this.delegate.requestFailedWithStatusCode(SystemStatusCode.timeoutFailure);
-        });
-      };
-      this.requestCanceled = () => {
-        if (this.options.trackAbort) {
-          this.endRequest(() => {
-            this.failed = true;
-            this.delegate.requestFailedWithStatusCode(SystemStatusCode.userAborted);
-          });
-        } else {
-          this.endRequest();
-        }
-      };
-      this.createXHR();
+      this.controller = new AbortController();
+      this.timeoutId = null;
+      this.xhr = this.createXhrWrapper();
     }
     send() {
-      if (this.xhr && !this.sent) {
-        this.notifyApplicationBeforeRequestStart();
-        this.setProgress(0);
-        this.xhr.send(this.data || null);
-        this.sent = true;
-        this.delegate.requestStarted();
+      if (this.sent) {
+        return;
+      }
+      this.sent = true;
+      this.notifyApplicationBeforeRequestStart();
+      this.setProgress(0);
+      this.delegate.requestStarted();
+      if (this.timeout > 0) {
+        this.timeoutId = setTimeout(() => {
+          this.timedOut = true;
+          this.controller.abort();
+        }, this.timeout * 1e3);
+      }
+      this.performFetch();
+    }
+    async performFetch() {
+      try {
+        const response = await fetch(this.url, {
+          method: this.method,
+          headers: this.headers,
+          body: this.data || null,
+          signal: this.controller.signal
+        });
+        this.clearTimeout();
+        this.updateXhrWrapper(response);
+        await this.handleResponse(response);
+      } catch (error) {
+        this.clearTimeout();
+        if (error.name === "AbortError") {
+          if (this.timedOut) {
+            this.handleTimeout();
+          } else {
+            this.handleAbort();
+          }
+        } else {
+          this.handleNetworkError();
+        }
       }
     }
+    async handleResponse(response) {
+      const contentType = response.headers.get("Content-Type");
+      let data;
+      if (this.responseType === "blob") {
+        data = await this.processResponseBlob(response);
+      } else {
+        data = await response.text();
+      }
+      const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
+      if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
+        this.destroy();
+        return;
+      }
+      if (response.status >= 200 && response.status < 300) {
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestCompletedWithResponse(
+          responseData,
+          response.status,
+          this.getRedirectLocation(response)
+        );
+        this.destroy();
+      } else {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(response.status, responseData);
+        this.destroy();
+      }
+    }
+    async processResponseBlob(response) {
+      const contentDisposition = response.headers.get("Content-Disposition") || "";
+      if (contentDisposition.indexOf("attachment") === 0 || contentDisposition.indexOf("inline") === 0) {
+        return await response.blob();
+      }
+      const blob = await response.blob();
+      return await blob.text();
+    }
+    getRedirectLocation(response) {
+      const ajaxLocation = response.headers.get("X-AJAX-LOCATION");
+      if (ajaxLocation) {
+        return ajaxLocation;
+      }
+      var anchorMatch = this.url.match(/^(.*)#/), wantUrl = anchorMatch ? anchorMatch[1] : this.url;
+      return wantUrl !== response.url ? response.url : null;
+    }
+    handleTimeout() {
+      this.failed = true;
+      this.notifyApplicationAfterRequestEnd();
+      this.delegate.requestFailedWithStatusCode(SystemStatusCode.timeoutFailure);
+      this.destroy();
+    }
+    handleAbort() {
+      if (this.options.trackAbort) {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(SystemStatusCode.userAborted);
+      } else {
+        this.notifyApplicationAfterRequestEnd();
+      }
+      this.destroy();
+    }
+    handleNetworkError() {
+      this.failed = true;
+      this.notifyApplicationAfterRequestEnd();
+      this.delegate.requestFailedWithStatusCode(SystemStatusCode.networkFailure);
+      this.destroy();
+    }
     abort() {
-      if (this.xhr && this.sent) {
-        this.xhr.abort();
+      if (this.sent && !this.aborted) {
+        this.aborted = true;
+        this.controller.abort();
+      }
+    }
+    clearTimeout() {
+      if (this.timeoutId) {
+        clearTimeout(this.timeoutId);
+        this.timeoutId = null;
       }
     }
     // Application events
@@ -1416,31 +1491,24 @@ var __publicField = (obj, key, value) => {
     notifyApplicationAfterRequestEnd() {
       Events.dispatch("ajax:request-end", { detail: { url: this.url, xhr: this.xhr }, cancelable: false });
     }
-    // Private
-    createXHR() {
-      const xhr = this.xhr = new XMLHttpRequest();
-      xhr.open(this.method, this.url, true);
-      xhr.responseType = this.responseType;
-      xhr.onprogress = this.requestProgressed;
-      xhr.onload = this.requestLoaded;
-      xhr.onerror = this.requestFailed;
-      xhr.ontimeout = this.requestTimedOut;
-      xhr.onabort = this.requestCanceled;
-      if (this.timeout) {
-        xhr.timeout = this.timeout * 1e3;
-      }
-      for (var i in this.headers) {
-        xhr.setRequestHeader(i, this.headers[i]);
-      }
-      return xhr;
+    // XHR compatibility wrapper
+    createXhrWrapper() {
+      return {
+        status: 0,
+        statusText: "",
+        responseURL: this.url,
+        getResponseHeader: (name) => null,
+        getAllResponseHeaders: () => ""
+      };
     }
-    endRequest(callback = () => {
-    }) {
-      if (this.xhr) {
-        this.notifyApplicationAfterRequestEnd();
-        callback(this.xhr);
-        this.destroy();
-      }
+    updateXhrWrapper(response) {
+      this.xhr = {
+        status: response.status,
+        statusText: response.statusText,
+        responseURL: response.url,
+        getResponseHeader: (name) => response.headers.get(name),
+        getAllResponseHeaders: () => [...response.headers].map(([k, v]) => `${k}: ${v}`).join("\r\n")
+      };
     }
     setProgress(progress) {
       this.progress = progress;
@@ -1450,37 +1518,16 @@ var __publicField = (obj, key, value) => {
       this.setProgress(1);
       this.delegate.requestFinished();
     }
-    processResponseData(xhr, callback) {
-      if (this.responseType !== "blob") {
-        callback(xhr, xhr.responseText);
-        return;
-      }
-      const contentDisposition = xhr.getResponseHeader("Content-Disposition") || "";
-      if (contentDisposition.indexOf("attachment") === 0 || contentDisposition.indexOf("inline") === 0) {
-        callback(xhr, xhr.response);
-        return;
-      }
-      const reader = new FileReader();
-      reader.addEventListener("load", () => {
-        callback(xhr, reader.result);
-      });
-      reader.readAsText(xhr.response);
-    }
-  }
-  function contentResponseIsRedirect(xhr, url) {
-    if (xhr.getResponseHeader("X-AJAX-LOCATION")) {
-      return xhr.getResponseHeader("X-AJAX-LOCATION");
-    }
-    var anchorMatch = url.match(/^(.*)#/), wantUrl = anchorMatch ? anchorMatch[1] : url;
-    return wantUrl !== xhr.responseURL ? xhr.responseURL : null;
-  }
+  };
   function contentTypeIsHTML(contentType) {
     return (contentType || "").match(/^text\/html|^application\/xhtml\+xml/);
   }
   function contentTypeIsJSON(contentType) {
     return (contentType || "").includes("application/json");
   }
-  const _ProgressBar = class _ProgressBar {
+
+  // src/extras/progress-bar.js
+  var _ProgressBar = class _ProgressBar {
     constructor() {
       this.stylesheetElement = this.createStylesheetElement();
       this.progressElement = this.createProgressElement();
@@ -1493,7 +1540,7 @@ var __publicField = (obj, key, value) => {
     }
     static get defaultCSS() {
       return unindent`
-        .oc-progress-bar {
+        .jax-progress-bar {
             position: fixed;
             display: block;
             top: 0;
@@ -1511,12 +1558,12 @@ var __publicField = (obj, key, value) => {
     static get progressBar() {
       return {
         show: function() {
-          const instance = getOrCreateInstance$1();
+          const instance = getOrCreateInstance();
           instance.setValue(0);
           instance.show();
         },
         hide: function() {
-          const instance = getOrCreateInstance$1();
+          const instance = getOrCreateInstance();
           instance.setValue(100);
           instance.hide();
         }
@@ -1591,21 +1638,23 @@ var __publicField = (obj, key, value) => {
     }
     createProgressElement() {
       const element = document.createElement("div");
-      element.className = "oc-progress-bar";
+      element.className = "jax-progress-bar";
       return element;
     }
   };
   __publicField(_ProgressBar, "instance", null);
   __publicField(_ProgressBar, "stylesheetReady", false);
   __publicField(_ProgressBar, "animationDuration", 300);
-  let ProgressBar = _ProgressBar;
-  function getOrCreateInstance$1() {
+  var ProgressBar = _ProgressBar;
+  function getOrCreateInstance() {
     if (!ProgressBar.instance) {
       ProgressBar.instance = new ProgressBar();
     }
     return ProgressBar.instance;
   }
-  class Request {
+
+  // src/request/request.js
+  var Request = class _Request {
     constructor(element, handler, options) {
       this.el = element;
       this.handler = handler;
@@ -1688,13 +1737,13 @@ var __publicField = (obj, key, value) => {
       this.request.send();
     }
     static send(handler, options) {
-      return new Request(document, handler, options).start();
+      return new _Request(document, handler, options).start();
     }
     static sendElement(element, handler, options) {
       if (typeof element === "string") {
         element = document.querySelector(element);
       }
-      return new Request(element, handler, options).start();
+      return new _Request(element, handler, options).start();
     }
     toggleRedirect(redirectUrl) {
       if (!redirectUrl) {
@@ -1885,7 +1934,7 @@ var __publicField = (obj, key, value) => {
         }
       }
     }
-  }
+  };
   function decorateResponse(response, statusCode, xhr) {
     if (!response || response.constructor !== {}.constructor || !response.__ajax) {
       return response;
@@ -1905,7 +1954,12 @@ var __publicField = (obj, key, value) => {
     }
     return data;
   }
-  class JsonParser {
+
+  // src/request/namespace.js
+  var namespace_default = Request;
+
+  // src/util/json-parser.js
+  var JsonParser = class _JsonParser {
     // Public
     static paramToObj(name, value) {
       if (value === void 0) {
@@ -1924,7 +1978,7 @@ var __publicField = (obj, key, value) => {
       }
     }
     static parseJSON(json) {
-      return JSON.parse(new JsonParser().parseString(json));
+      return JSON.parse(new _JsonParser().parseString(json));
     }
     // Private
     parseString(str) {
@@ -1955,8 +2009,7 @@ var __publicField = (obj, key, value) => {
             return body;
           } else if (str[i] === '"') {
             body += '\\"';
-          } else
-            body += str[i];
+          } else body += str[i];
         }
         throw new Error("Invalid string JSON object.");
       }
@@ -2029,8 +2082,7 @@ var __publicField = (obj, key, value) => {
               continue;
             }
             if (str[i] === "]" && i === str.length - 1) {
-              if (result[result.length - 1] === ",")
-                result = result.substr(0, result.length - 1);
+              if (result[result.length - 1] === ",") result = result.substr(0, result.length - 1);
               result += "]";
               return result;
             }
@@ -2043,8 +2095,7 @@ var __publicField = (obj, key, value) => {
               result += ",";
               type = "needBody";
               while (str[i + 1] === "," || this.isBlankChar(str[i + 1])) {
-                if (str[i + 1] === ",")
-                  result += "null,";
+                if (str[i + 1] === ",") result += "null,";
                 i++;
               }
             } else if (str[i] === "]" && i === str.length - 1) {
@@ -2078,8 +2129,7 @@ var __publicField = (obj, key, value) => {
         for (var i = pos + 1; i < str.length; i++) {
           if (str[i] === "\\") {
             body += str[i];
-            if (i + 1 < str.length)
-              body += str[i + 1];
+            if (i + 1 < str.length) body += str[i + 1];
             i++;
           } else if (str[i] === str[pos]) {
             body += str[pos];
@@ -2087,8 +2137,7 @@ var __publicField = (obj, key, value) => {
               originLength: body.length,
               body
             };
-          } else
-            body += str[i];
+          } else body += str[i];
         }
         throw new Error("Broken JSON string body near " + body);
       }
@@ -2139,8 +2188,7 @@ var __publicField = (obj, key, value) => {
         for (var i = pos + 1; i < str.length; i++) {
           body += str[i];
           if (str[i] === "\\") {
-            if (i + 1 < str.length)
-              body += str[i + 1];
+            if (i + 1 < str.length) body += str[i + 1];
             i++;
           } else if (str[i] === '"') {
             if (stack[stack.length - 1] === '"') {
@@ -2185,29 +2233,26 @@ var __publicField = (obj, key, value) => {
       throw new Error("Broken JSON body near " + str.substr(pos - 5 >= 0 ? pos - 5 : 0, 50));
     }
     canBeKeyHead(ch) {
-      if (ch[0] === "\\")
-        return false;
-      if (ch[0] >= "a" && ch[0] <= "z" || ch[0] >= "A" && ch[0] <= "Z" || ch[0] === "_")
-        return true;
-      if (ch[0] >= "0" && ch[0] <= "9")
-        return true;
-      if (ch[0] === "$")
-        return true;
-      if (ch.charCodeAt(0) > 255)
-        return true;
+      if (ch[0] === "\\") return false;
+      if (ch[0] >= "a" && ch[0] <= "z" || ch[0] >= "A" && ch[0] <= "Z" || ch[0] === "_") return true;
+      if (ch[0] >= "0" && ch[0] <= "9") return true;
+      if (ch[0] === "$") return true;
+      if (ch.charCodeAt(0) > 255) return true;
       return false;
     }
     isBlankChar(ch) {
       return ch === " " || ch === "\n" || ch === "	";
     }
-  }
-  class RequestBuilder {
+  };
+
+  // src/core/request-builder.js
+  var RequestBuilder = class _RequestBuilder {
     constructor(element, handler, options) {
       this.options = options || {};
       this.ogElement = element;
       this.element = this.findElement(element);
       if (!this.element) {
-        return Request.send(
+        return namespace_default.send(
           this.normalizeHandler(handler),
           this.options
         );
@@ -2240,7 +2285,7 @@ var __publicField = (obj, key, value) => {
       if (!handler) {
         handler = this.getHandlerName();
       }
-      return Request.sendElement(
+      return namespace_default.sendElement(
         this.element,
         this.normalizeHandler(handler),
         this.options
@@ -2250,7 +2295,7 @@ var __publicField = (obj, key, value) => {
       if (typeof element === "string") {
         element = document.querySelector(element);
       }
-      return new RequestBuilder(element, handler, options);
+      return new _RequestBuilder(element, handler, options);
     }
     // Event target may some random node inside the data-request container
     // so it should bubble up but also capture the ogElement in case it is
@@ -2371,7 +2416,7 @@ var __publicField = (obj, key, value) => {
       });
       this.options.data = data;
     }
-  }
+  };
   function elementParents(element, selector) {
     const parents = [];
     if (!element.parentNode) {
@@ -2390,7 +2435,9 @@ var __publicField = (obj, key, value) => {
   function isValidHandler(str) {
     return /^(?:\w+\:{2})?on[A-Z]{1}[\w+]*$/.test(str);
   }
-  class Trigger {
+
+  // src/core/trigger.js
+  var Trigger = class {
     constructor(element) {
       this.element = element;
       this.config = this.parse();
@@ -2474,24 +2521,16 @@ var __publicField = (obj, key, value) => {
      * Get default trigger based on element type
      */
     getDefaultTrigger() {
-      var _a;
       const el = this.element;
       const tag = el.tagName.toLowerCase();
-      const type = (_a = el.type) == null ? void 0 : _a.toLowerCase();
-      if (tag === "form")
-        return "submit";
-      if (tag === "a")
-        return "click";
-      if (tag === "button")
-        return "click";
-      if (tag === "select")
-        return "change";
-      if (type === "checkbox" || type === "radio" || type === "file")
-        return "change";
-      if (tag === "input" && (type === "submit" || type === "button"))
-        return "click";
-      if (tag === "input")
-        return "click";
+      const type = el.type?.toLowerCase();
+      if (tag === "form") return "submit";
+      if (tag === "a") return "click";
+      if (tag === "button") return "click";
+      if (tag === "select") return "change";
+      if (type === "checkbox" || type === "radio" || type === "file") return "change";
+      if (tag === "input" && (type === "submit" || type === "button")) return "click";
+      if (tag === "input") return "click";
       return "click";
     }
     /**
@@ -2612,8 +2651,10 @@ var __publicField = (obj, key, value) => {
         }
       }, this.config.poll);
     }
-  }
-  let Controller$2 = class Controller {
+  };
+
+  // src/core/controller.js
+  var Controller = class {
     constructor() {
       /**
        * Handle delegated trigger events
@@ -2691,30 +2732,34 @@ var __publicField = (obj, key, value) => {
       window.jaxUnloading = true;
     }
   };
-  const controller$2 = new Controller$2();
-  const AjaxFramework = {
-    controller: controller$2,
+
+  // src/core/namespace.js
+  var controller = new Controller();
+  var namespace_default2 = {
+    controller,
     parseJSON: JsonParser.parseJSON,
     serializeAsJSON: FormSerializer.serializeAsJSON,
     requestElement: RequestBuilder.fromElement,
     start() {
-      controller$2.start();
+      controller.start();
     },
     stop() {
-      controller$2.stop();
+      controller.stop();
     }
   };
-  class Validator {
+
+  // src/extras/validator.js
+  var Validator = class {
     submit(el) {
       var form = el.closest("form");
       if (!form) {
         return;
       }
       form.querySelectorAll("[data-validate-for]").forEach(function(el2) {
-        el2.classList.remove("oc-visible");
+        el2.classList.remove("jax-visible");
       });
       form.querySelectorAll("[data-validate-error]").forEach(function(el2) {
-        el2.classList.remove("oc-visible");
+        el2.classList.remove("jax-visible");
       });
     }
     validate(el, fields, errorMsg, allowDefault) {
@@ -2731,12 +2776,12 @@ var __publicField = (obj, key, value) => {
             field.dataset.emptyMode = true;
             field.innerHTML = fieldMessages.join(", ");
           }
-          field.classList.add("oc-visible");
+          field.classList.add("jax-visible");
         }
       }
       var container = form.querySelector("[data-validate-error]");
       if (container) {
-        container.classList.add("oc-visible");
+        container.classList.add("jax-visible");
         var oldMessages = container.querySelectorAll("[data-message]");
         if (oldMessages.length > 0) {
           var clone = oldMessages[0];
@@ -2759,27 +2804,29 @@ var __publicField = (obj, key, value) => {
         event.preventDefault();
       });
     }
-  }
-  const _AttachLoader = class _AttachLoader {
+  };
+
+  // src/extras/attach-loader.js
+  var _AttachLoader = class _AttachLoader {
     constructor() {
       this.stylesheetElement = this.createStylesheetElement();
     }
     static get defaultCSS() {
       return unindent`
-        .ajax-attach-loader:after {
+        .jax-attach-loader:after {
             content: '';
             display: inline-block;
             vertical-align: middle;
             margin-left: .4em;
             height: 1em;
             width: 1em;
-            animation: ajax-rotate-loader 0.8s infinite linear;
+            animation: jax-rotate-loader 0.8s infinite linear;
             border: .2em solid currentColor;
             border-right-color: transparent;
             border-radius: 50%;
             opacity: .5;
         }
-        @keyframes ajax-rotate-loader {
+        @keyframes jax-rotate-loader {
             0% { transform: rotate(0deg); }
             100%  { transform: rotate(360deg); }
         }
@@ -2801,31 +2848,31 @@ var __publicField = (obj, key, value) => {
     // Public
     show(el) {
       this.installStylesheetElement();
-      if (isElementInput(el)) {
+      if (isElementInput2(el)) {
         const loadEl = document.createElement("span");
-        loadEl.className = "ajax-attach-loader is-inline";
+        loadEl.className = "jax-attach-loader is-inline";
         el.parentNode.insertBefore(loadEl, el.nextSibling);
       } else {
-        el.classList.add("ajax-attach-loader");
+        el.classList.add("jax-attach-loader");
         el.disabled = true;
       }
     }
     hide(el) {
-      if (isElementInput(el)) {
-        if (el.nextElementSibling && el.nextElementSibling.classList.contains("ajax-attach-loader")) {
+      if (isElementInput2(el)) {
+        if (el.nextElementSibling && el.nextElementSibling.classList.contains("jax-attach-loader")) {
           el.nextElementSibling.remove();
         }
       } else {
-        el.classList.remove("ajax-attach-loader");
+        el.classList.remove("jax-attach-loader");
         el.disabled = false;
       }
     }
     hideAll() {
-      document.querySelectorAll(".ajax-attach-loader.is-inline").forEach((el) => {
+      document.querySelectorAll(".jax-attach-loader.is-inline").forEach((el) => {
         el.remove();
       });
-      document.querySelectorAll(".ajax-attach-loader").forEach((el) => {
-        el.classList.remove("ajax-attach-loader");
+      document.querySelectorAll(".jax-attach-loader").forEach((el) => {
+        el.classList.remove("jax-attach-loader");
         el.disabled = false;
       });
     }
@@ -2836,7 +2883,7 @@ var __publicField = (obj, key, value) => {
       if (el.matches("form")) {
         var self = this;
         el.querySelectorAll("[data-attach-loading][type=submit]").forEach(function(otherEl) {
-          if (!isElementInput(otherEl)) {
+          if (!isElementInput2(otherEl)) {
             self.show(otherEl);
           }
         });
@@ -2849,7 +2896,7 @@ var __publicField = (obj, key, value) => {
       if (el.matches("form")) {
         var self = this;
         el.querySelectorAll("[data-attach-loading]").forEach(function(otherEl) {
-          if (!isElementInput(otherEl)) {
+          if (!isElementInput2(otherEl)) {
             self.hide(otherEl);
           }
         });
@@ -2869,8 +2916,8 @@ var __publicField = (obj, key, value) => {
     }
   };
   __publicField(_AttachLoader, "stylesheetReady", false);
-  let AttachLoader = _AttachLoader;
-  function isElementInput(el) {
+  var AttachLoader = _AttachLoader;
+  function isElementInput2(el) {
     return ["input", "select", "textarea"].includes((el.tagName || "").toLowerCase());
   }
   function resolveElement(el) {
@@ -2882,7 +2929,9 @@ var __publicField = (obj, key, value) => {
     }
     return el;
   }
-  const _FlashMessage = class _FlashMessage {
+
+  // src/extras/flash-message.js
+  var _FlashMessage = class _FlashMessage {
     constructor() {
       this.queue = [];
       this.lastUniqueId = 0;
@@ -2891,7 +2940,7 @@ var __publicField = (obj, key, value) => {
     }
     static get defaultCSS() {
       return unindent`
-        .oc-flash-message {
+        .jax-flash-message {
             display: flex;
             position: fixed;
             z-index: 10300;
@@ -2908,7 +2957,7 @@ var __publicField = (obj, key, value) => {
             transform: scale(0.9);
         }
         @media (max-width: 768px) {
-            .oc-flash-message {
+            .jax-flash-message {
                 left: 1rem;
                 right: 1rem;
                 top: 1rem;
@@ -2916,30 +2965,30 @@ var __publicField = (obj, key, value) => {
                 width: auto;
             }
         }
-        .oc-flash-message.flash-show {
+        .jax-flash-message.flash-show {
             opacity: 1;
             transform: scale(1);
         }
-        .oc-flash-message.loading {
+        .jax-flash-message.loading {
             transition: opacity 0.2s;
             transform: scale(1);
         }
-        .oc-flash-message.success {
+        .jax-flash-message.success {
             background: #86cb43;
         }
-        .oc-flash-message.error {
+        .jax-flash-message.error {
             background: #cc3300;
         }
-        .oc-flash-message.warning {
+        .jax-flash-message.warning {
             background: #f0ad4e;
         }
-        .oc-flash-message.info, .oc-flash-message.loading {
+        .jax-flash-message.info, .jax-flash-message.loading {
             background: #5fb6f5;
         }
-        .oc-flash-message span.flash-message {
+        .jax-flash-message span.flash-message {
             flex-grow: 1;
         }
-        .oc-flash-message a.flash-close {
+        .jax-flash-message a.flash-close {
             box-sizing: content-box;
             width: 1em;
             height: 1em;
@@ -2951,40 +3000,40 @@ var __publicField = (obj, key, value) => {
             text-decoration: none;
             cursor: pointer;
         }
-        .oc-flash-message a.flash-close:hover,
-        .oc-flash-message a.flash-close:focus {
+        .jax-flash-message a.flash-close:hover,
+        .jax-flash-message a.flash-close:focus {
             opacity: 1;
         }
-        .oc-flash-message.loading a.flash-close {
+        .jax-flash-message.loading a.flash-close {
             display: none;
         }
-        .oc-flash-message span.flash-loader {
+        .jax-flash-message span.flash-loader {
             margin-right: 1em;
         }
-        .oc-flash-message span.flash-loader:after {
+        .jax-flash-message span.flash-loader:after {
             position: relative;
             top: 2px;
             content: '';
             display: inline-block;
             height: 1.2em;
             width: 1.2em;
-            animation: oc-flash-loader 0.8s infinite linear;
+            animation: jax-flash-loader 0.8s infinite linear;
             border: .2em solid currentColor;
             border-right-color: transparent;
             border-radius: 50%;
             opacity: .5;
         }
-        html[data-turbo-preview] .oc-flash-message {
+        html[data-turbo-preview] .jax-flash-message {
             opacity: 0;
         }
-        @keyframes oc-flash-loader {
+        @keyframes jax-flash-loader {
             0% { transform: rotate(0deg); }
             100%  { transform: rotate(360deg); }
         }
     `;
     }
     static flashMsg(options) {
-      return getOrCreateInstance().show(options);
+      return getOrCreateInstance2().show(options);
     }
     runQueue() {
       if (this.displayedMessage) {
@@ -3018,10 +3067,8 @@ var __publicField = (obj, key, value) => {
         replace = null,
         hideAll = false
       } = options;
-      if (options.text)
-        message = options.text;
-      if (options.class)
-        type = options.class;
+      if (options.text) message = options.text;
+      if (options.class) type = options.class;
       if (hideAll || type === "error" || type === "loading") {
         this.clearQueue();
       }
@@ -3053,10 +3100,8 @@ var __publicField = (obj, key, value) => {
         target = null,
         interval = 3
       } = options;
-      if (options.text)
-        message = options.text;
-      if (options.class)
-        type = options.class;
+      if (options.text) message = options.text;
+      if (options.class) type = options.class;
       if (target) {
         target.removeAttribute("data-control");
       }
@@ -3115,7 +3160,7 @@ var __publicField = (obj, key, value) => {
     hideAll() {
       this.clearQueue();
       this.displayedMessage = null;
-      document.querySelectorAll(".oc-flash-message, [data-control=flash-message]").forEach((el) => {
+      document.querySelectorAll(".jax-flash-message, [data-control=flash-message]").forEach((el) => {
         el.remove();
       });
     }
@@ -3123,7 +3168,7 @@ var __publicField = (obj, key, value) => {
       const element = document.createElement("div");
       const loadingHtml = type === "loading" ? '<span class="flash-loader"></span>' : "";
       const closeHtml = '<a class="flash-close"></a>';
-      element.className = "oc-flash-message " + type;
+      element.className = "jax-flash-message " + type;
       element.innerHTML = loadingHtml + '<span class="flash-message">' + message + "</span>" + closeHtml;
       return element;
     }
@@ -3140,26 +3185,28 @@ var __publicField = (obj, key, value) => {
       return element;
     }
     createMessagesElement() {
-      const found = document.querySelector(".oc-flash-messages");
+      const found = document.querySelector(".jax-flash-messages");
       if (found) {
         return found;
       }
       const element = document.createElement("div");
-      element.className = "oc-flash-messages";
+      element.className = "jax-flash-messages";
       document.body.appendChild(element);
       return element;
     }
   };
   __publicField(_FlashMessage, "instance", null);
   __publicField(_FlashMessage, "stylesheetReady", false);
-  let FlashMessage = _FlashMessage;
-  function getOrCreateInstance() {
+  var FlashMessage = _FlashMessage;
+  function getOrCreateInstance2() {
     if (!FlashMessage.instance) {
       FlashMessage.instance = new FlashMessage();
     }
     return FlashMessage.instance;
   }
-  let Controller$1 = class Controller {
+
+  // src/extras/controller.js
+  var Controller2 = class {
     constructor() {
       this.started = false;
       this.enableProgressBar = function(event) {
@@ -3291,20 +3338,24 @@ var __publicField = (obj, key, value) => {
     });
     return result;
   }
-  const controller$1 = new Controller$1();
-  const AjaxExtras = {
-    controller: controller$1,
+
+  // src/extras/namespace.js
+  var controller2 = new Controller2();
+  var namespace_default3 = {
+    controller: controller2,
     flashMsg: FlashMessage.flashMsg,
     progressBar: ProgressBar.progressBar,
     attachLoader: AttachLoader.attachLoader,
     start() {
-      controller$1.start();
+      controller2.start();
     },
     stop() {
-      controller$1.stop();
+      controller2.stop();
     }
   };
-  class EventListener {
+
+  // src/observe/event-listener.js
+  var EventListener = class {
     constructor(eventTarget, eventName, eventOptions) {
       this.eventTarget = eventTarget;
       this.eventName = eventName;
@@ -3343,7 +3394,7 @@ var __publicField = (obj, key, value) => {
         return leftIndex < rightIndex ? -1 : leftIndex > rightIndex ? 1 : 0;
       });
     }
-  }
+  };
   function extendEvent(event) {
     if ("immediatePropagationStopped" in event) {
       return event;
@@ -3358,7 +3409,9 @@ var __publicField = (obj, key, value) => {
       });
     }
   }
-  class Dispatcher {
+
+  // src/observe/dispatcher.js
+  var Dispatcher = class {
     constructor(application2) {
       this.application = application2;
       this.eventListenerMaps = /* @__PURE__ */ new Map();
@@ -3444,8 +3497,10 @@ var __publicField = (obj, key, value) => {
       });
       return parts.join(":");
     }
-  }
-  class Context {
+  };
+
+  // src/observe/context.js
+  var Context = class {
     constructor(module, scope) {
       this.module = module;
       this.scope = scope;
@@ -3499,8 +3554,10 @@ var __publicField = (obj, key, value) => {
       detail = Object.assign({ identifier, control, element }, detail);
       this.application.handleError(error, `Error ${message}`, detail);
     }
-  }
-  class Module {
+  };
+
+  // src/observe/module.js
+  var Module = class {
     constructor(application2, definition) {
       this.application = application2;
       this.definition = blessDefinition(definition);
@@ -3536,14 +3593,16 @@ var __publicField = (obj, key, value) => {
       }
       return context;
     }
-  }
+  };
   function blessDefinition(definition) {
     return {
       identifier: definition.identifier,
       controlConstructor: definition.controlConstructor
     };
   }
-  class Scope {
+
+  // src/observe/scope.js
+  var Scope = class _Scope {
     constructor(element, identifier) {
       this.element = element;
       this.identifier = identifier;
@@ -3570,13 +3629,15 @@ var __publicField = (obj, key, value) => {
       return this.element === document.documentElement;
     }
     get documentScope() {
-      return this.isDocumentScope ? this : new Scope(document.documentElement, this.identifier);
+      return this.isDocumentScope ? this : new _Scope(document.documentElement, this.identifier);
     }
-  }
+  };
   function attributeValueContainsToken(attributeName, token) {
     return `[${attributeName}~="${token}"]`;
   }
-  class ElementObserver {
+
+  // src/observe/mutation/element-observer.js
+  var ElementObserver = class {
     constructor(element, delegate) {
       this.mutationObserverInit = { attributes: true, childList: true, subtree: true };
       this.element = element;
@@ -3709,8 +3770,10 @@ var __publicField = (obj, key, value) => {
         }
       }
     }
-  }
-  class AttributeObserver {
+  };
+
+  // src/observe/mutation/attribute-observer.js
+  var AttributeObserver = class {
     constructor(element, attributeName, delegate) {
       this.delegate = delegate;
       this.attributeName = attributeName;
@@ -3761,15 +3824,17 @@ var __publicField = (obj, key, value) => {
         this.delegate.elementAttributeValueChanged(element, attributeName);
       }
     }
-  }
+  };
+
+  // src/observe/util/set-operations.js
   function add(map, key, value) {
-    fetch(map, key).add(value);
+    fetch2(map, key).add(value);
   }
   function del(map, key, value) {
-    fetch(map, key).delete(value);
+    fetch2(map, key).delete(value);
     prune(map, key);
   }
-  function fetch(map, key) {
+  function fetch2(map, key) {
     let values = map.get(key);
     if (!values) {
       values = /* @__PURE__ */ new Set();
@@ -3783,7 +3848,9 @@ var __publicField = (obj, key, value) => {
       map.delete(key);
     }
   }
-  class Multimap {
+
+  // src/observe/util/multimap.js
+  var Multimap = class {
     constructor() {
       this.valuesByKey = /* @__PURE__ */ new Map();
     }
@@ -3822,8 +3889,10 @@ var __publicField = (obj, key, value) => {
     getKeysForValue(value) {
       return Array.from(this.valuesByKey).filter(([_key, values]) => values.has(value)).map(([key, _values]) => key);
     }
-  }
-  class TokenListObserver {
+  };
+
+  // src/observe/mutation/token-list-observer.js
+  var TokenListObserver = class {
     constructor(element, attributeName, delegate) {
       this.delegate = delegate;
       this.attributeObserver = new AttributeObserver(element, attributeName, this);
@@ -3891,7 +3960,7 @@ var __publicField = (obj, key, value) => {
       const tokenString = element.getAttribute(attributeName) || "";
       return parseTokenString(tokenString, element, attributeName);
     }
-  }
+  };
   function parseTokenString(tokenString, element, attributeName) {
     return tokenString.trim().split(/\s+/).filter((content) => content.length).map((content, index) => ({ element, attributeName, content, index }));
   }
@@ -3902,7 +3971,9 @@ var __publicField = (obj, key, value) => {
   function tokensAreEqual(left, right) {
     return left && right && left.index == right.index && left.content == right.content;
   }
-  class ValueListObserver {
+
+  // src/observe/mutation/value-list-observer.js
+  var ValueListObserver = class {
     constructor(element, attributeName, delegate) {
       this.tokenListObserver = new TokenListObserver(element, attributeName, this);
       this.delegate = delegate;
@@ -3967,8 +4038,10 @@ var __publicField = (obj, key, value) => {
         return { error };
       }
     }
-  }
-  class ScopeObserver {
+  };
+
+  // src/observe/scope-observer.js
+  var ScopeObserver = class {
     constructor(element, delegate) {
       this.element = element;
       this.delegate = delegate;
@@ -4020,8 +4093,10 @@ var __publicField = (obj, key, value) => {
       }
       return scopesByIdentifier;
     }
-  }
-  class Container {
+  };
+
+  // src/observe/container.js
+  var Container = class {
     constructor(application2) {
       this.application = application2;
       this.scopeObserver = new ScopeObserver(this.element, this);
@@ -4100,7 +4175,9 @@ var __publicField = (obj, key, value) => {
       const scopes = this.scopesByIdentifier.getValuesForKey(module.identifier);
       scopes.forEach((scope) => module.disconnectContextForScope(scope));
     }
-  }
+  };
+
+  // src/util/wait.js
   function waitFor(predicate, timeout) {
     return new Promise((resolve, reject) => {
       const check = () => {
@@ -4130,7 +4207,9 @@ var __publicField = (obj, key, value) => {
       }
     });
   }
-  class Application {
+
+  // src/observe/application.js
+  var Application = class {
     constructor() {
       this.started = false;
       this.element = document.documentElement;
@@ -4230,9 +4309,11 @@ var __publicField = (obj, key, value) => {
 %o`, message, error, detail);
       (_a = window.onerror) === null || _a === void 0 ? void 0 : _a.call(window, message, "", 0, 0, error);
     }
-  }
-  const application = new Application();
-  const AjaxObserve = {
+  };
+
+  // src/observe/namespace.js
+  var application = new Application();
+  var namespace_default4 = {
     application,
     registerControl(id, control) {
       return application.register(id, control);
@@ -4256,13 +4337,15 @@ var __publicField = (obj, key, value) => {
       application.stop();
     }
   };
-  class BrowserAdapter {
-    constructor(controller2) {
+
+  // src/turbo/browser-adapter.js
+  var BrowserAdapter = class {
+    constructor(controller4) {
       this.progressBar = new ProgressBar();
       this.showProgressBar = () => {
         this.progressBar.show({ cssClass: "is-turbo" });
       };
-      this.controller = controller2;
+      this.controller = controller4;
     }
     visitProposedToLocationWithAction(location2, action) {
       const restorationIdentifier = uuid();
@@ -4330,8 +4413,10 @@ var __publicField = (obj, key, value) => {
     reload() {
       window.location.reload();
     }
-  }
-  class Location {
+  };
+
+  // src/turbo/location.js
+  var Location = class _Location {
     constructor(url) {
       const linkWithAnchor = document.createElement("a");
       linkWithAnchor.href = url;
@@ -4349,7 +4434,7 @@ var __publicField = (obj, key, value) => {
     }
     static wrap(locatable) {
       if (typeof locatable == "string") {
-        return new Location(locatable);
+        return new _Location(locatable);
       } else if (locatable != null) {
         return locatable;
       }
@@ -4391,7 +4476,7 @@ var __publicField = (obj, key, value) => {
     valueOf() {
       return this.absoluteURL;
     }
-  }
+  };
   function getPrefixURL(location2) {
     return addTrailingSlash(location2.getOrigin() + location2.getPath());
   }
@@ -4404,7 +4489,9 @@ var __publicField = (obj, key, value) => {
   function stringEndsWith(string, suffix) {
     return string.slice(-suffix.length) === suffix;
   }
-  class History {
+
+  // src/turbo/history.js
+  var History = class {
     constructor(delegate) {
       this.started = false;
       this.pageLoaded = false;
@@ -4458,8 +4545,10 @@ var __publicField = (obj, key, value) => {
       const state = { ajaxTurbo: { restorationIdentifier } };
       method.call(history, state, "", location2.absoluteURL);
     }
-  }
-  class ScrollManager {
+  };
+
+  // src/turbo/scroll-manager.js
+  var ScrollManager = class {
     constructor(delegate) {
       this.started = false;
       this.onScroll = () => {
@@ -4490,8 +4579,10 @@ var __publicField = (obj, key, value) => {
     updatePosition(position) {
       this.delegate.scrollPositionChanged(position);
     }
-  }
-  class SnapshotCache {
+  };
+
+  // src/turbo/snapshot-cache.js
+  var SnapshotCache = class {
     constructor(size) {
       this.keys = [];
       this.snapshots = {};
@@ -4532,8 +4623,10 @@ var __publicField = (obj, key, value) => {
         delete this.snapshots[key];
       }
     }
-  }
-  class Renderer {
+  };
+
+  // src/turbo/renderer.js
+  var Renderer = class {
     renderView(callback) {
       const renderInterception = () => {
         callback();
@@ -4558,13 +4651,15 @@ var __publicField = (obj, key, value) => {
       copyElementAttributes(createdScriptElement, element);
       return createdScriptElement;
     }
-  }
+  };
   function copyElementAttributes(destinationElement, sourceElement) {
     for (const { name, value } of array(sourceElement.attributes)) {
       destinationElement.setAttribute(name, value);
     }
   }
-  class ErrorRenderer extends Renderer {
+
+  // src/turbo/error-renderer.js
+  var ErrorRenderer = class extends Renderer {
     constructor(delegate, html) {
       super();
       this.delegate = delegate;
@@ -4603,8 +4698,10 @@ var __publicField = (obj, key, value) => {
     getScriptElements() {
       return array(document.documentElement.querySelectorAll("script"));
     }
-  }
-  class HeadDetails {
+  };
+
+  // src/turbo/head-details.js
+  var HeadDetails = class {
     constructor(children) {
       this.detailsByOuterHTML = children.reduce((result, element) => {
         const { outerHTML } = element;
@@ -4654,7 +4751,7 @@ var __publicField = (obj, key, value) => {
         return elementIsMetaElementWithName(element, name) ? element : result;
       }, void 0);
     }
-  }
+  };
   function elementType(element) {
     if (elementIsScript(element)) {
       return "script";
@@ -4677,7 +4774,9 @@ var __publicField = (obj, key, value) => {
     const tagName = element.tagName.toLowerCase();
     return tagName == "meta" && element.getAttribute("name") == name;
   }
-  class Snapshot {
+
+  // src/turbo/snapshot.js
+  var Snapshot = class _Snapshot {
     constructor(headDetails, bodyElement) {
       this.headDetails = headDetails;
       this.bodyElement = bodyElement;
@@ -4703,7 +4802,7 @@ var __publicField = (obj, key, value) => {
       return new this(headDetails, bodyElement);
     }
     clone() {
-      return new Snapshot(this.headDetails, this.bodyElement.cloneNode(true));
+      return new _Snapshot(this.headDetails, this.bodyElement.cloneNode(true));
     }
     getRootLocation() {
       const root = this.getSetting("root", "/");
@@ -4753,8 +4852,10 @@ var __publicField = (obj, key, value) => {
       const value = this.headDetails.getMetaValue(`turbo-${name}`);
       return value == null ? defaultValue : value;
     }
-  }
-  class SnapshotRenderer extends Renderer {
+  };
+
+  // src/turbo/snapshot-renderer.js
+  var SnapshotRenderer = class extends Renderer {
     constructor(delegate, currentSnapshot, newSnapshot, isPreview) {
       super();
       this.delegate = delegate;
@@ -4888,7 +4989,7 @@ var __publicField = (obj, key, value) => {
     getNewBodyScriptElements() {
       return array(this.newBody.querySelectorAll("script"));
     }
-  }
+  };
   function createPlaceholderForPermanentElement(permanentElement) {
     const element = document.createElement("meta");
     element.setAttribute("name", "turbo-permanent-placeholder");
@@ -4904,7 +5005,9 @@ var __publicField = (obj, key, value) => {
   function elementIsFocusable(element) {
     return element && typeof element.focus == "function";
   }
-  class View {
+
+  // src/turbo/view.js
+  var View = class {
     constructor(delegate) {
       this.htmlElement = document.documentElement;
       this.delegate = delegate;
@@ -4940,7 +5043,9 @@ var __publicField = (obj, key, value) => {
     renderError(error, callback) {
       ErrorRenderer.render(this.delegate, callback, error || "");
     }
-  }
+  };
+
+  // src/turbo/visit.js
   var TimingMetric = {
     visitStart: "visitStart",
     requestStart: "requestStart",
@@ -4954,8 +5059,8 @@ var __publicField = (obj, key, value) => {
     failed: "failed",
     completed: "completed"
   };
-  class Visit {
-    constructor(controller2, location2, action, restorationIdentifier = uuid()) {
+  var Visit = class {
+    constructor(controller4, location2, action, restorationIdentifier = uuid()) {
       this.identifier = uuid();
       this.timingMetrics = {};
       this.followedRedirect = false;
@@ -4974,10 +5079,10 @@ var __publicField = (obj, key, value) => {
           this.scrolled = true;
         }
       };
-      this.controller = controller2;
+      this.controller = controller4;
       this.location = location2;
       this.action = action;
-      this.adapter = controller2.adapter;
+      this.adapter = controller4.adapter;
       this.restorationIdentifier = restorationIdentifier;
       this.isSamePage = this.locationChangeIsSamePage();
     }
@@ -5198,8 +5303,10 @@ var __publicField = (obj, key, value) => {
         delete this.frame;
       }
     }
-  }
-  class Controller {
+  };
+
+  // src/turbo/controller.js
+  var Controller3 = class _Controller {
     constructor() {
       this.adapter = new BrowserAdapter(this);
       this.history = new History(this);
@@ -5247,7 +5354,7 @@ var __publicField = (obj, key, value) => {
       };
     }
     start() {
-      if (Controller.supported && !this.started) {
+      if (_Controller.supported && !this.started) {
         addEventListener("click", this.clickCaptured, true);
         addEventListener("DOMContentLoaded", this.pageLoaded, false);
         this.startHistory();
@@ -5296,7 +5403,7 @@ var __publicField = (obj, key, value) => {
       }
     }
     startVisitToLocationWithAction(location2, action, restorationIdentifier) {
-      if (Controller.supported) {
+      if (_Controller.supported) {
         const restorationData = this.getRestorationDataForIdentifier(restorationIdentifier);
         this.startVisit(Location.wrap(location2), action, { restorationData });
       } else {
@@ -5561,37 +5668,41 @@ var __publicField = (obj, key, value) => {
         delete this.restorationData[oldestKey];
       }
     }
-  }
-  Controller.supported = !!(window.history.pushState && window.requestAnimationFrame && window.addEventListener);
-  const controller = new Controller();
-  const AjaxTurbo = {
+  };
+  Controller3.supported = !!(window.history.pushState && window.requestAnimationFrame && window.addEventListener);
+
+  // src/turbo/namespace.js
+  var controller3 = new Controller3();
+  var namespace_default5 = {
     get supported() {
-      return Controller.supported;
+      return Controller3.supported;
     },
-    controller,
+    controller: controller3,
     visit(location2, options) {
-      controller.visit(location2, options);
+      controller3.visit(location2, options);
     },
     clearCache() {
-      controller.clearCache();
+      controller3.clearCache();
     },
     setProgressBarVisible(value) {
-      controller.setProgressBarVisible(value);
+      controller3.setProgressBarVisible(value);
     },
     setProgressBarDelay(delay) {
-      controller.setProgressBarDelay(delay);
+      controller3.setProgressBarDelay(delay);
     },
     start() {
-      controller.start();
+      controller3.start();
     },
     isEnabled() {
-      return controller.isEnabled();
+      return controller3.isEnabled();
     },
     pageReady() {
-      return controller.pageReady();
+      return controller3.pageReady();
     }
   };
-  const _ControlBase = class _ControlBase {
+
+  // src/observe/control-base.js
+  var _ControlBase = class _ControlBase {
     static get shouldLoad() {
       return true;
     }
@@ -5703,46 +5814,43 @@ var __publicField = (obj, key, value) => {
       return result;
     }
     parseValue(value) {
-      if (value === "true")
-        return true;
-      if (value === "false")
-        return false;
-      if (value === "null")
-        return null;
-      if (value === "undefined")
-        return void 0;
-      if (value !== "" && !isNaN(Number(value)))
-        return Number(value);
+      if (value === "true") return true;
+      if (value === "false") return false;
+      if (value === "null") return null;
+      if (value === "undefined") return void 0;
+      if (value !== "" && !isNaN(Number(value))) return Number(value);
       return value;
     }
   };
   __publicField(_ControlBase, "proxyCounter", 0);
-  let ControlBase = _ControlBase;
+  var ControlBase = _ControlBase;
+
+  // src/framework-bundle.js
   if (!window.jax) {
     window.jax = {};
   }
-  window.jax.AjaxRequest = Request;
+  window.jax.AjaxRequest = namespace_default;
   window.jax.AssetManager = AssetManager;
-  window.jax.ajax = Request.send;
-  window.jax.AjaxFramework = AjaxFramework;
-  window.jax.request = AjaxFramework.requestElement;
-  window.jax.parseJSON = AjaxFramework.parseJSON;
-  window.jax.values = AjaxFramework.serializeAsJSON;
-  window.jax.AjaxExtras = AjaxExtras;
-  window.jax.flashMsg = AjaxExtras.flashMsg;
-  window.jax.progressBar = AjaxExtras.progressBar;
-  window.jax.attachLoader = AjaxExtras.attachLoader;
-  window.jax.AjaxObserve = AjaxObserve;
+  window.jax.ajax = namespace_default.send;
+  window.jax.AjaxFramework = namespace_default2;
+  window.jax.request = namespace_default2.requestElement;
+  window.jax.parseJSON = namespace_default2.parseJSON;
+  window.jax.values = namespace_default2.serializeAsJSON;
+  window.jax.AjaxExtras = namespace_default3;
+  window.jax.flashMsg = namespace_default3.flashMsg;
+  window.jax.progressBar = namespace_default3.progressBar;
+  window.jax.attachLoader = namespace_default3.attachLoader;
+  window.jax.AjaxObserve = namespace_default4;
   window.jax.ControlBase = ControlBase;
-  window.jax.registerControl = AjaxObserve.registerControl;
-  window.jax.importControl = AjaxObserve.importControl;
-  window.jax.observeControl = AjaxObserve.observeControl;
-  window.jax.fetchControl = AjaxObserve.fetchControl;
-  window.jax.fetchControls = AjaxObserve.fetchControls;
-  window.jax.AjaxTurbo = AjaxTurbo;
-  window.jax.useTurbo = AjaxTurbo.isEnabled;
-  window.jax.visit = AjaxTurbo.visit;
-  window.jax.pageReady = AjaxTurbo.pageReady;
+  window.jax.registerControl = namespace_default4.registerControl;
+  window.jax.importControl = namespace_default4.importControl;
+  window.jax.observeControl = namespace_default4.observeControl;
+  window.jax.fetchControl = namespace_default4.fetchControl;
+  window.jax.fetchControls = namespace_default4.fetchControls;
+  window.jax.AjaxTurbo = namespace_default5;
+  window.jax.useTurbo = namespace_default5.isEnabled;
+  window.jax.visit = namespace_default5.visit;
+  window.jax.pageReady = namespace_default5.pageReady;
   window.jax.Events = Events;
   window.jax.dispatch = Events.dispatch;
   window.jax.trigger = Events.trigger;
@@ -5750,8 +5858,8 @@ var __publicField = (obj, key, value) => {
   window.jax.off = Events.off;
   window.jax.one = Events.one;
   window.jax.waitFor = waitFor;
-  AjaxFramework.start();
-  AjaxExtras.start();
-  AjaxObserve.start();
-  AjaxTurbo.start();
+  namespace_default2.start();
+  namespace_default3.start();
+  namespace_default4.start();
+  namespace_default5.start();
 })();

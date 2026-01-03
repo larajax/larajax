@@ -1,15 +1,16 @@
-var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => {
-  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-  return value;
-};
-(function() {
-  "use strict";
+var jax = (() => {
+  var __defProp = Object.defineProperty;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+
+  // src/util/index.js
   function dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
     const event = new CustomEvent(eventName, { detail, bubbles, cancelable });
     target.dispatchEvent(event);
     return event;
+  }
+  function defer(callback) {
+    setTimeout(callback, 1);
   }
   function unindent(strings, ...values) {
     const lines = trimLeft(interpolate(strings, values)).split("\n");
@@ -26,16 +27,34 @@ var __publicField = (obj, key, value) => {
       return result + string + value;
     }, "");
   }
-  const namespaceRegex = /[^.]*(?=\..*)\.|.*/;
-  const stripNameRegex = /\..*/;
-  const stripUidRegex = /::\d+$/;
-  const eventRegistry = {};
-  let uidEvent = 1;
-  const customEvents = {
+  function array(values) {
+    return Array.prototype.slice.call(values);
+  }
+  function uuid() {
+    return Array.apply(null, { length: 36 }).map((_, i) => {
+      if (i == 8 || i == 13 || i == 18 || i == 23) {
+        return "-";
+      } else if (i == 14) {
+        return "4";
+      } else if (i == 19) {
+        return (Math.floor(Math.random() * 4) + 8).toString(16);
+      } else {
+        return Math.floor(Math.random() * 15).toString(16);
+      }
+    }).join("");
+  }
+
+  // src/util/events.js
+  var namespaceRegex = /[^.]*(?=\..*)\.|.*/;
+  var stripNameRegex = /\..*/;
+  var stripUidRegex = /::\d+$/;
+  var eventRegistry = {};
+  var uidEvent = 1;
+  var customEvents = {
     mouseenter: "mouseover",
     mouseleave: "mouseout"
   };
-  const nativeEvents = /* @__PURE__ */ new Set([
+  var nativeEvents = /* @__PURE__ */ new Set([
     "click",
     "dblclick",
     "mouseup",
@@ -83,7 +102,7 @@ var __publicField = (obj, key, value) => {
     "abort",
     "scroll"
   ]);
-  class Events {
+  var Events = class {
     static on(element, event, handler, delegationFunction, options) {
       addHandler(element, event, handler, delegationFunction, options, false);
     }
@@ -125,7 +144,7 @@ var __publicField = (obj, key, value) => {
     static trigger(target, eventName, { detail = {}, bubbles = true, cancelable = true } = {}) {
       return dispatch(eventName, { target, detail, bubbles, cancelable });
     }
-  }
+  };
   function makeEventUid(element, uid) {
     return uid && `${uid}::${uidEvent++}` || element.uidEvent || uidEvent++;
   }
@@ -226,7 +245,9 @@ var __publicField = (obj, key, value) => {
     event = event.replace(stripNameRegex, "");
     return customEvents[event] || event;
   }
-  class Envelope {
+
+  // src/request/envelope.js
+  var Envelope = class {
     constructor(response = {}, status = 200) {
       const {
         __ajax: body,
@@ -266,7 +287,7 @@ var __publicField = (obj, key, value) => {
       if (!type) {
         return this.ops;
       }
-      return this.ops.filter((o) => (o == null ? void 0 : o.op) === type);
+      return this.ops.filter((o) => o?.op === type);
     }
     getFlash() {
       return this.getOps("flash").map(({ level = "info", text = "" }) => ({ level, text }));
@@ -297,9 +318,10 @@ var __publicField = (obj, key, value) => {
           continue;
         }
         for (const asset of assets) {
-          if (!seen[type].has(asset.url)) {
-            seen[type].add(asset.url);
-            out[type].push(asset);
+          const url = typeof asset === "string" ? asset : asset.url;
+          if (!seen[type].has(url)) {
+            seen[type].add(url);
+            out[type].push(typeof asset === "string" ? { url: asset } : asset);
           }
         }
       }
@@ -307,13 +329,15 @@ var __publicField = (obj, key, value) => {
     }
     getRedirectUrl() {
       const op = this.getOps("redirect")[0];
-      return (op == null ? void 0 : op.url) || this.redirect || null;
+      return op?.url || this.redirect || null;
     }
     getReload() {
       return this.getOps("reload")[0] || null;
     }
-  }
-  class Options {
+  };
+
+  // src/request/options.js
+  var Options = class {
     constructor(handler, options) {
       if (!handler) {
         throw new Error("The request handler name is not specified.");
@@ -406,25 +430,27 @@ var __publicField = (obj, key, value) => {
       }
       return cookieValue;
     }
-  }
-  class AssetManager {
+  };
+
+  // src/request/asset-manager.js
+  var AssetManager = class _AssetManager {
     /**
      * Load a collection of assets.
-     * @param {{js?: Array<string|{url: string, attributes?: object}>, css?: Array<string|{url: string, attributes?: object}>, img?: Array<string|{url: string, attributes?: object}>}} collection
+     * @param {{js?: Array<{url: string, attributes?: object}>, css?: Array<{url: string, attributes?: object}>, img?: Array<{url: string, attributes?: object}>}} collection
      * @param {(err?: Error) => void} [callback]  // optional; called on success or with error
      * @returns {Promise<void>}
      */
     static load(collection = {}, callback) {
-      const manager = new AssetManager(), promise = manager.loadCollection(collection);
+      const manager = new _AssetManager(), promise = manager.loadCollection(collection);
       if (typeof callback === "function") {
         promise.then(() => callback());
       }
       return promise;
     }
     async loadCollection(collection = {}) {
-      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
-      const cssList = (collection.css ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
-      const imgList = (collection.img ?? []).map(normalizeAsset);
+      const jsList = (collection.js ?? []).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+      const cssList = (collection.css ?? []).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
+      const imgList = collection.img ?? [];
       if (!jsList.length && !cssList.length && !imgList.length) {
         return;
       }
@@ -466,8 +492,7 @@ var __publicField = (obj, key, value) => {
           }
           el.src = url;
           for (const [key, value] of Object.entries(attributes)) {
-            if (key === "type")
-              continue;
+            if (key === "type") continue;
             if (value === true) {
               el.setAttribute(key, "");
             } else if (value !== false && value != null) {
@@ -481,8 +506,7 @@ var __publicField = (obj, key, value) => {
       }, Promise.resolve());
     }
     loadImages(list) {
-      if (!list.length)
-        return Promise.resolve();
+      if (!list.length) return Promise.resolve();
       return Promise.all(list.map((asset) => new Promise((resolve, reject) => {
         const { url } = asset;
         const img = new Image();
@@ -491,20 +515,19 @@ var __publicField = (obj, key, value) => {
         img.src = url;
       })));
     }
-  }
-  function normalizeAsset(asset) {
-    return typeof asset === "string" ? { url: asset } : asset;
-  }
+  };
   function htmlEscape(value) {
     return String(value).replace(/"/g, '\\"');
   }
+
+  // src/request/dom-patcher.js
   var DomUpdateMode = {
     replaceWith: "replace",
     prepend: "prepend",
     append: "append",
     update: "innerHTML"
   };
-  class DomPatcher {
+  var DomPatcher = class {
     constructor(envelope, partialMap, options = {}) {
       this.options = options;
       this.envelope = envelope;
@@ -588,7 +611,7 @@ var __publicField = (obj, key, value) => {
         this.afterUpdateCallback(element);
       }
     }
-  }
+  };
   function resolveSelectorResponse(selector, partialSelector) {
     if (selector === true) {
       return document.querySelectorAll(partialSelector);
@@ -643,6 +666,8 @@ var __publicField = (obj, key, value) => {
       container.removeChild(newScript);
     });
   }
+
+  // src/util/referrer.js
   function getReferrerUrl() {
     const url = jax.useTurbo && jax.useTurbo() ? jax.AjaxTurbo.controller.getLastVisitUrl() : getReferrerFromSameOrigin();
     if (!url || isSameBaseUrl(url)) {
@@ -671,6 +696,8 @@ var __publicField = (obj, key, value) => {
     const givenUrl = new URL(url, window.location.origin), currentUrl = new URL(window.location.href);
     return givenUrl.origin === currentUrl.origin && givenUrl.pathname === currentUrl.pathname;
   }
+
+  // src/util/promise.js
   function decoratePromiseProxy(fn, ctx = null) {
     return (...args) => {
       const p = Promise.resolve().then(() => fn.apply(ctx, args));
@@ -707,12 +734,10 @@ var __publicField = (obj, key, value) => {
       rejectFn = reject;
       executor(
         (value) => {
-          if (!hasCanceled)
-            resolve(value);
+          if (!hasCanceled) resolve(value);
         },
         (error) => {
-          if (!hasCanceled)
-            reject(error);
+          if (!hasCanceled) reject(error);
         },
         (onCancel) => {
           cancelHandler = onCancel;
@@ -739,7 +764,9 @@ var __publicField = (obj, key, value) => {
     };
     return decoratePromise(promise);
   }
-  class Actions {
+
+  // src/request/actions.js
+  var Actions = class {
     constructor(delegate, context, options) {
       this.el = delegate.el;
       this.delegate = delegate;
@@ -775,7 +802,6 @@ var __publicField = (obj, key, value) => {
       }
     }
     async success(data, responseCode, xhr) {
-      var _a;
       if (this.invoke("beforeUpdate", [data, responseCode, xhr]) === false) {
         return;
       }
@@ -791,7 +817,7 @@ var __publicField = (obj, key, value) => {
         this.invokeFunc("successFunc", data);
         return;
       }
-      if (!((_a = data.$env) == null ? void 0 : _a.isFatal())) {
+      if (!data.$env?.isFatal()) {
         await this.invoke("handleUpdateOperations", [data, responseCode, xhr]);
         await this.invoke("handleUpdateResponse", [data, responseCode, xhr]);
       }
@@ -799,13 +825,12 @@ var __publicField = (obj, key, value) => {
       this.invokeFunc("successFunc", data);
     }
     async error(data, responseCode, xhr) {
-      var _a, _b;
-      let errorMsg = (_a = data.$env) == null ? void 0 : _a.getMessage();
+      let errorMsg = data.$env?.getMessage();
       if (window.jaxUnloading !== void 0 && window.jaxUnloading) {
         return;
       }
       this.delegate.toggleRedirect(false);
-      if (!((_b = data.$env) == null ? void 0 : _b.isFatal())) {
+      if (!data.$env?.isFatal()) {
         await this.invoke("handleUpdateOperations", [data, responseCode, xhr]);
         await this.invoke("handleUpdateResponse", [data, responseCode, xhr]);
       } else {
@@ -926,7 +951,7 @@ var __publicField = (obj, key, value) => {
       }
       let defaultPrevented = false;
       for (const dispatched of events) {
-        const isAsync = (dispatched == null ? void 0 : dispatched.async) === true;
+        const isAsync = dispatched?.async === true;
         if (isAsync) {
           await new Promise((outerResolve, outerReject) => {
             let settled = false;
@@ -947,7 +972,7 @@ var __publicField = (obj, key, value) => {
               context: this.context,
               promise: { resolve, reject }
             });
-            if (event == null ? void 0 : event.defaultPrevented) {
+            if (event?.defaultPrevented) {
               defaultPrevented = true;
             }
           });
@@ -956,8 +981,7 @@ var __publicField = (obj, key, value) => {
             ...dispatched.detail || {},
             context: this.context
           });
-          if (event == null ? void 0 : event.defaultPrevented)
-            defaultPrevented = true;
+          if (event?.defaultPrevented) defaultPrevented = true;
         }
       }
       return defaultPrevented;
@@ -1021,32 +1045,31 @@ var __publicField = (obj, key, value) => {
       }, 0);
     }
     async handleUpdateOperations(data, responseCode, xhr) {
-      var _a, _b, _c, _d, _e, _f, _g;
-      const flashMessages = this.delegate.options.flash ? (_a = data.$env) == null ? void 0 : _a.getFlash() : null;
+      const flashMessages = this.delegate.options.flash ? data.$env?.getFlash() : null;
       if (flashMessages) {
         for (var flashMessage in flashMessages) {
           this.invoke("handleFlashMessage", [flashMessage.text, flashMessage.level]);
         }
       }
-      const browserEvents = (_b = data.$env) == null ? void 0 : _b.getBrowserEvents();
+      const browserEvents = data.$env?.getBrowserEvents();
       if (browserEvents && await this.invoke("handleBrowserEvents", [browserEvents])) {
         return;
       }
-      const redirectUrl = (_c = data.$env) == null ? void 0 : _c.getRedirectUrl();
+      const redirectUrl = data.$env?.getRedirectUrl();
       if (redirectUrl) {
         this.delegate.toggleRedirect(redirectUrl);
       }
       if (this.delegate.isRedirect) {
         this.invoke("handleRedirectResponse", [this.delegate.options.redirect]);
       }
-      if ((_d = data.$env) == null ? void 0 : _d.getReload()) {
+      if (data.$env?.getReload()) {
         this.invoke("handleReloadResponse");
       }
-      const invalidFields = (_e = data.$env) == null ? void 0 : _e.getInvalid();
+      const invalidFields = data.$env?.getInvalid();
       if (invalidFields) {
-        this.invoke("handleValidationMessage", [(_f = data.$env) == null ? void 0 : _f.getMessage(), invalidFields]);
+        this.invoke("handleValidationMessage", [data.$env?.getMessage(), invalidFields]);
       }
-      const loadAssets = (_g = data.$env) == null ? void 0 : _g.getAssets();
+      const loadAssets = data.$env?.getAssets();
       if (loadAssets) {
         await AssetManager.load(loadAssets);
       }
@@ -1095,7 +1118,7 @@ var __publicField = (obj, key, value) => {
         localStorage.setItem("ocPushStateReferrer", newUrl);
       }
     }
-  }
+  };
   function getFilenameFromHttpResponse(xhr) {
     const contentDisposition = xhr.getResponseHeader("Content-Disposition");
     if (!contentDisposition) {
@@ -1112,16 +1135,18 @@ var __publicField = (obj, key, value) => {
     }
     return null;
   }
-  class FormSerializer {
+
+  // src/util/form-serializer.js
+  var FormSerializer = class _FormSerializer {
     // Public
     static assignToObj(obj, name, value) {
-      new FormSerializer().assignObjectInternal(obj, name, value);
+      new _FormSerializer().assignObjectInternal(obj, name, value);
     }
     static serializeAsJSON(element) {
       if (typeof element === "string") {
         element = document.querySelector(element);
       }
-      return new FormSerializer().parseContainer(element);
+      return new _FormSerializer().parseContainer(element);
     }
     // Private
     parseContainer(element) {
@@ -1188,8 +1213,10 @@ var __publicField = (obj, key, value) => {
       }
       return elements;
     }
-  }
-  class Data {
+  };
+
+  // src/request/data.js
+  var Data = class {
     constructor(userData, targetEl, formEl) {
       this.userData = userData || {};
       this.targetEl = targetEl;
@@ -1305,21 +1332,25 @@ var __publicField = (obj, key, value) => {
       }
       return val;
     }
-  }
+  };
   function isElementInput(el) {
     return ["input", "select", "textarea"].includes((el.tagName || "").toLowerCase());
   }
+
+  // src/util/http-request.js
   var SystemStatusCode = {
     networkFailure: 0,
     timeoutFailure: -1,
     contentTypeMismatch: -2,
     userAborted: -3
   };
-  class HttpRequest {
+  var HttpRequest = class {
     constructor(delegate, url, options) {
       this.failed = false;
       this.progress = 0;
       this.sent = false;
+      this.aborted = false;
+      this.timedOut = false;
       this.delegate = delegate;
       this.url = url;
       this.options = options;
@@ -1328,66 +1359,129 @@ var __publicField = (obj, key, value) => {
       this.responseType = options.responseType || "";
       this.data = options.data;
       this.timeout = options.timeout || 0;
-      this.requestProgressed = (event) => {
-        if (event.lengthComputable) {
-          this.setProgress(event.loaded / event.total);
-        }
-      };
-      this.requestLoaded = () => {
-        this.endRequest((xhr) => {
-          this.processResponseData(xhr, (xhr2, data) => {
-            const contentType = xhr2.getResponseHeader("Content-Type");
-            const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
-            if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
-              this.failed = true;
-              this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
-              return;
-            }
-            if (xhr2.status >= 200 && xhr2.status < 300) {
-              this.delegate.requestCompletedWithResponse(responseData, xhr2.status, contentResponseIsRedirect(xhr2, this.url));
-            } else {
-              this.failed = true;
-              this.delegate.requestFailedWithStatusCode(xhr2.status, responseData);
-            }
-          });
-        });
-      };
-      this.requestFailed = () => {
-        this.endRequest(() => {
-          this.failed = true;
-          this.delegate.requestFailedWithStatusCode(SystemStatusCode.networkFailure);
-        });
-      };
-      this.requestTimedOut = () => {
-        this.endRequest(() => {
-          this.failed = true;
-          this.delegate.requestFailedWithStatusCode(SystemStatusCode.timeoutFailure);
-        });
-      };
-      this.requestCanceled = () => {
-        if (this.options.trackAbort) {
-          this.endRequest(() => {
-            this.failed = true;
-            this.delegate.requestFailedWithStatusCode(SystemStatusCode.userAborted);
-          });
-        } else {
-          this.endRequest();
-        }
-      };
-      this.createXHR();
+      this.controller = new AbortController();
+      this.timeoutId = null;
+      this.xhr = this.createXhrWrapper();
     }
     send() {
-      if (this.xhr && !this.sent) {
-        this.notifyApplicationBeforeRequestStart();
-        this.setProgress(0);
-        this.xhr.send(this.data || null);
-        this.sent = true;
-        this.delegate.requestStarted();
+      if (this.sent) {
+        return;
+      }
+      this.sent = true;
+      this.notifyApplicationBeforeRequestStart();
+      this.setProgress(0);
+      this.delegate.requestStarted();
+      if (this.timeout > 0) {
+        this.timeoutId = setTimeout(() => {
+          this.timedOut = true;
+          this.controller.abort();
+        }, this.timeout * 1e3);
+      }
+      this.performFetch();
+    }
+    async performFetch() {
+      try {
+        const response = await fetch(this.url, {
+          method: this.method,
+          headers: this.headers,
+          body: this.data || null,
+          signal: this.controller.signal
+        });
+        this.clearTimeout();
+        this.updateXhrWrapper(response);
+        await this.handleResponse(response);
+      } catch (error) {
+        this.clearTimeout();
+        if (error.name === "AbortError") {
+          if (this.timedOut) {
+            this.handleTimeout();
+          } else {
+            this.handleAbort();
+          }
+        } else {
+          this.handleNetworkError();
+        }
       }
     }
+    async handleResponse(response) {
+      const contentType = response.headers.get("Content-Type");
+      let data;
+      if (this.responseType === "blob") {
+        data = await this.processResponseBlob(response);
+      } else {
+        data = await response.text();
+      }
+      const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
+      if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
+        this.destroy();
+        return;
+      }
+      if (response.status >= 200 && response.status < 300) {
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestCompletedWithResponse(
+          responseData,
+          response.status,
+          this.getRedirectLocation(response)
+        );
+        this.destroy();
+      } else {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(response.status, responseData);
+        this.destroy();
+      }
+    }
+    async processResponseBlob(response) {
+      const contentDisposition = response.headers.get("Content-Disposition") || "";
+      if (contentDisposition.indexOf("attachment") === 0 || contentDisposition.indexOf("inline") === 0) {
+        return await response.blob();
+      }
+      const blob = await response.blob();
+      return await blob.text();
+    }
+    getRedirectLocation(response) {
+      const ajaxLocation = response.headers.get("X-AJAX-LOCATION");
+      if (ajaxLocation) {
+        return ajaxLocation;
+      }
+      var anchorMatch = this.url.match(/^(.*)#/), wantUrl = anchorMatch ? anchorMatch[1] : this.url;
+      return wantUrl !== response.url ? response.url : null;
+    }
+    handleTimeout() {
+      this.failed = true;
+      this.notifyApplicationAfterRequestEnd();
+      this.delegate.requestFailedWithStatusCode(SystemStatusCode.timeoutFailure);
+      this.destroy();
+    }
+    handleAbort() {
+      if (this.options.trackAbort) {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(SystemStatusCode.userAborted);
+      } else {
+        this.notifyApplicationAfterRequestEnd();
+      }
+      this.destroy();
+    }
+    handleNetworkError() {
+      this.failed = true;
+      this.notifyApplicationAfterRequestEnd();
+      this.delegate.requestFailedWithStatusCode(SystemStatusCode.networkFailure);
+      this.destroy();
+    }
     abort() {
-      if (this.xhr && this.sent) {
-        this.xhr.abort();
+      if (this.sent && !this.aborted) {
+        this.aborted = true;
+        this.controller.abort();
+      }
+    }
+    clearTimeout() {
+      if (this.timeoutId) {
+        clearTimeout(this.timeoutId);
+        this.timeoutId = null;
       }
     }
     // Application events
@@ -1397,31 +1491,24 @@ var __publicField = (obj, key, value) => {
     notifyApplicationAfterRequestEnd() {
       Events.dispatch("ajax:request-end", { detail: { url: this.url, xhr: this.xhr }, cancelable: false });
     }
-    // Private
-    createXHR() {
-      const xhr = this.xhr = new XMLHttpRequest();
-      xhr.open(this.method, this.url, true);
-      xhr.responseType = this.responseType;
-      xhr.onprogress = this.requestProgressed;
-      xhr.onload = this.requestLoaded;
-      xhr.onerror = this.requestFailed;
-      xhr.ontimeout = this.requestTimedOut;
-      xhr.onabort = this.requestCanceled;
-      if (this.timeout) {
-        xhr.timeout = this.timeout * 1e3;
-      }
-      for (var i in this.headers) {
-        xhr.setRequestHeader(i, this.headers[i]);
-      }
-      return xhr;
+    // XHR compatibility wrapper
+    createXhrWrapper() {
+      return {
+        status: 0,
+        statusText: "",
+        responseURL: this.url,
+        getResponseHeader: (name) => null,
+        getAllResponseHeaders: () => ""
+      };
     }
-    endRequest(callback = () => {
-    }) {
-      if (this.xhr) {
-        this.notifyApplicationAfterRequestEnd();
-        callback(this.xhr);
-        this.destroy();
-      }
+    updateXhrWrapper(response) {
+      this.xhr = {
+        status: response.status,
+        statusText: response.statusText,
+        responseURL: response.url,
+        getResponseHeader: (name) => response.headers.get(name),
+        getAllResponseHeaders: () => [...response.headers].map(([k, v]) => `${k}: ${v}`).join("\r\n")
+      };
     }
     setProgress(progress) {
       this.progress = progress;
@@ -1431,37 +1518,16 @@ var __publicField = (obj, key, value) => {
       this.setProgress(1);
       this.delegate.requestFinished();
     }
-    processResponseData(xhr, callback) {
-      if (this.responseType !== "blob") {
-        callback(xhr, xhr.responseText);
-        return;
-      }
-      const contentDisposition = xhr.getResponseHeader("Content-Disposition") || "";
-      if (contentDisposition.indexOf("attachment") === 0 || contentDisposition.indexOf("inline") === 0) {
-        callback(xhr, xhr.response);
-        return;
-      }
-      const reader = new FileReader();
-      reader.addEventListener("load", () => {
-        callback(xhr, reader.result);
-      });
-      reader.readAsText(xhr.response);
-    }
-  }
-  function contentResponseIsRedirect(xhr, url) {
-    if (xhr.getResponseHeader("X-AJAX-LOCATION")) {
-      return xhr.getResponseHeader("X-AJAX-LOCATION");
-    }
-    var anchorMatch = url.match(/^(.*)#/), wantUrl = anchorMatch ? anchorMatch[1] : url;
-    return wantUrl !== xhr.responseURL ? xhr.responseURL : null;
-  }
+  };
   function contentTypeIsHTML(contentType) {
     return (contentType || "").match(/^text\/html|^application\/xhtml\+xml/);
   }
   function contentTypeIsJSON(contentType) {
     return (contentType || "").includes("application/json");
   }
-  const _ProgressBar = class _ProgressBar {
+
+  // src/extras/progress-bar.js
+  var _ProgressBar = class _ProgressBar {
     constructor() {
       this.stylesheetElement = this.createStylesheetElement();
       this.progressElement = this.createProgressElement();
@@ -1474,7 +1540,7 @@ var __publicField = (obj, key, value) => {
     }
     static get defaultCSS() {
       return unindent`
-        .oc-progress-bar {
+        .jax-progress-bar {
             position: fixed;
             display: block;
             top: 0;
@@ -1572,21 +1638,23 @@ var __publicField = (obj, key, value) => {
     }
     createProgressElement() {
       const element = document.createElement("div");
-      element.className = "oc-progress-bar";
+      element.className = "jax-progress-bar";
       return element;
     }
   };
   __publicField(_ProgressBar, "instance", null);
   __publicField(_ProgressBar, "stylesheetReady", false);
   __publicField(_ProgressBar, "animationDuration", 300);
-  let ProgressBar = _ProgressBar;
+  var ProgressBar = _ProgressBar;
   function getOrCreateInstance() {
     if (!ProgressBar.instance) {
       ProgressBar.instance = new ProgressBar();
     }
     return ProgressBar.instance;
   }
-  class Request {
+
+  // src/request/request.js
+  var Request = class _Request {
     constructor(element, handler, options) {
       this.el = element;
       this.handler = handler;
@@ -1669,13 +1737,13 @@ var __publicField = (obj, key, value) => {
       this.request.send();
     }
     static send(handler, options) {
-      return new Request(document, handler, options).start();
+      return new _Request(document, handler, options).start();
     }
     static sendElement(element, handler, options) {
       if (typeof element === "string") {
         element = document.querySelector(element);
       }
-      return new Request(element, handler, options).start();
+      return new _Request(element, handler, options).start();
     }
     toggleRedirect(redirectUrl) {
       if (!redirectUrl) {
@@ -1866,7 +1934,7 @@ var __publicField = (obj, key, value) => {
         }
       }
     }
-  }
+  };
   function decorateResponse(response, statusCode, xhr) {
     if (!response || response.constructor !== {}.constructor || !response.__ajax) {
       return response;
@@ -1886,7 +1954,12 @@ var __publicField = (obj, key, value) => {
     }
     return data;
   }
-  class JsonParser {
+
+  // src/request/namespace.js
+  var namespace_default = Request;
+
+  // src/util/json-parser.js
+  var JsonParser = class _JsonParser {
     // Public
     static paramToObj(name, value) {
       if (value === void 0) {
@@ -1905,7 +1978,7 @@ var __publicField = (obj, key, value) => {
       }
     }
     static parseJSON(json) {
-      return JSON.parse(new JsonParser().parseString(json));
+      return JSON.parse(new _JsonParser().parseString(json));
     }
     // Private
     parseString(str) {
@@ -1936,8 +2009,7 @@ var __publicField = (obj, key, value) => {
             return body;
           } else if (str[i] === '"') {
             body += '\\"';
-          } else
-            body += str[i];
+          } else body += str[i];
         }
         throw new Error("Invalid string JSON object.");
       }
@@ -2010,8 +2082,7 @@ var __publicField = (obj, key, value) => {
               continue;
             }
             if (str[i] === "]" && i === str.length - 1) {
-              if (result[result.length - 1] === ",")
-                result = result.substr(0, result.length - 1);
+              if (result[result.length - 1] === ",") result = result.substr(0, result.length - 1);
               result += "]";
               return result;
             }
@@ -2024,8 +2095,7 @@ var __publicField = (obj, key, value) => {
               result += ",";
               type = "needBody";
               while (str[i + 1] === "," || this.isBlankChar(str[i + 1])) {
-                if (str[i + 1] === ",")
-                  result += "null,";
+                if (str[i + 1] === ",") result += "null,";
                 i++;
               }
             } else if (str[i] === "]" && i === str.length - 1) {
@@ -2059,8 +2129,7 @@ var __publicField = (obj, key, value) => {
         for (var i = pos + 1; i < str.length; i++) {
           if (str[i] === "\\") {
             body += str[i];
-            if (i + 1 < str.length)
-              body += str[i + 1];
+            if (i + 1 < str.length) body += str[i + 1];
             i++;
           } else if (str[i] === str[pos]) {
             body += str[pos];
@@ -2068,8 +2137,7 @@ var __publicField = (obj, key, value) => {
               originLength: body.length,
               body
             };
-          } else
-            body += str[i];
+          } else body += str[i];
         }
         throw new Error("Broken JSON string body near " + body);
       }
@@ -2120,8 +2188,7 @@ var __publicField = (obj, key, value) => {
         for (var i = pos + 1; i < str.length; i++) {
           body += str[i];
           if (str[i] === "\\") {
-            if (i + 1 < str.length)
-              body += str[i + 1];
+            if (i + 1 < str.length) body += str[i + 1];
             i++;
           } else if (str[i] === '"') {
             if (stack[stack.length - 1] === '"') {
@@ -2166,29 +2233,26 @@ var __publicField = (obj, key, value) => {
       throw new Error("Broken JSON body near " + str.substr(pos - 5 >= 0 ? pos - 5 : 0, 50));
     }
     canBeKeyHead(ch) {
-      if (ch[0] === "\\")
-        return false;
-      if (ch[0] >= "a" && ch[0] <= "z" || ch[0] >= "A" && ch[0] <= "Z" || ch[0] === "_")
-        return true;
-      if (ch[0] >= "0" && ch[0] <= "9")
-        return true;
-      if (ch[0] === "$")
-        return true;
-      if (ch.charCodeAt(0) > 255)
-        return true;
+      if (ch[0] === "\\") return false;
+      if (ch[0] >= "a" && ch[0] <= "z" || ch[0] >= "A" && ch[0] <= "Z" || ch[0] === "_") return true;
+      if (ch[0] >= "0" && ch[0] <= "9") return true;
+      if (ch[0] === "$") return true;
+      if (ch.charCodeAt(0) > 255) return true;
       return false;
     }
     isBlankChar(ch) {
       return ch === " " || ch === "\n" || ch === "	";
     }
-  }
-  class RequestBuilder {
+  };
+
+  // src/core/request-builder.js
+  var RequestBuilder = class _RequestBuilder {
     constructor(element, handler, options) {
       this.options = options || {};
       this.ogElement = element;
       this.element = this.findElement(element);
       if (!this.element) {
-        return Request.send(
+        return namespace_default.send(
           this.normalizeHandler(handler),
           this.options
         );
@@ -2221,7 +2285,7 @@ var __publicField = (obj, key, value) => {
       if (!handler) {
         handler = this.getHandlerName();
       }
-      return Request.sendElement(
+      return namespace_default.sendElement(
         this.element,
         this.normalizeHandler(handler),
         this.options
@@ -2231,7 +2295,7 @@ var __publicField = (obj, key, value) => {
       if (typeof element === "string") {
         element = document.querySelector(element);
       }
-      return new RequestBuilder(element, handler, options);
+      return new _RequestBuilder(element, handler, options);
     }
     // Event target may some random node inside the data-request container
     // so it should bubble up but also capture the ogElement in case it is
@@ -2352,7 +2416,7 @@ var __publicField = (obj, key, value) => {
       });
       this.options.data = data;
     }
-  }
+  };
   function elementParents(element, selector) {
     const parents = [];
     if (!element.parentNode) {
@@ -2371,7 +2435,9 @@ var __publicField = (obj, key, value) => {
   function isValidHandler(str) {
     return /^(?:\w+\:{2})?on[A-Z]{1}[\w+]*$/.test(str);
   }
-  class Trigger {
+
+  // src/core/trigger.js
+  var Trigger = class {
     constructor(element) {
       this.element = element;
       this.config = this.parse();
@@ -2455,24 +2521,16 @@ var __publicField = (obj, key, value) => {
      * Get default trigger based on element type
      */
     getDefaultTrigger() {
-      var _a;
       const el = this.element;
       const tag = el.tagName.toLowerCase();
-      const type = (_a = el.type) == null ? void 0 : _a.toLowerCase();
-      if (tag === "form")
-        return "submit";
-      if (tag === "a")
-        return "click";
-      if (tag === "button")
-        return "click";
-      if (tag === "select")
-        return "change";
-      if (type === "checkbox" || type === "radio" || type === "file")
-        return "change";
-      if (tag === "input" && (type === "submit" || type === "button"))
-        return "click";
-      if (tag === "input")
-        return "click";
+      const type = el.type?.toLowerCase();
+      if (tag === "form") return "submit";
+      if (tag === "a") return "click";
+      if (tag === "button") return "click";
+      if (tag === "select") return "change";
+      if (type === "checkbox" || type === "radio" || type === "file") return "change";
+      if (tag === "input" && (type === "submit" || type === "button")) return "click";
+      if (tag === "input") return "click";
       return "click";
     }
     /**
@@ -2593,8 +2651,10 @@ var __publicField = (obj, key, value) => {
         }
       }, this.config.poll);
     }
-  }
-  class Controller {
+  };
+
+  // src/core/controller.js
+  var Controller = class {
     constructor() {
       /**
        * Handle delegated trigger events
@@ -2671,9 +2731,11 @@ var __publicField = (obj, key, value) => {
     documentOnBeforeUnload(event) {
       window.jaxUnloading = true;
     }
-  }
-  const controller = new Controller();
-  const AjaxFramework = {
+  };
+
+  // src/core/namespace.js
+  var controller = new Controller();
+  var namespace_default2 = {
     controller,
     parseJSON: JsonParser.parseJSON,
     serializeAsJSON: FormSerializer.serializeAsJSON,
@@ -2685,6 +2747,8 @@ var __publicField = (obj, key, value) => {
       controller.stop();
     }
   };
+
+  // src/util/wait.js
   function waitFor(predicate, timeout) {
     return new Promise((resolve, reject) => {
       const check = () => {
@@ -2714,16 +2778,18 @@ var __publicField = (obj, key, value) => {
       }
     });
   }
+
+  // src/framework.js
   if (!window.jax) {
     window.jax = {};
   }
-  window.jax.AjaxRequest = Request;
+  window.jax.AjaxRequest = namespace_default;
   window.jax.AssetManager = AssetManager;
-  window.jax.ajax = Request.send;
-  window.jax.AjaxFramework = AjaxFramework;
-  window.jax.request = AjaxFramework.requestElement;
-  window.jax.parseJSON = AjaxFramework.parseJSON;
-  window.jax.values = AjaxFramework.serializeAsJSON;
+  window.jax.ajax = namespace_default.send;
+  window.jax.AjaxFramework = namespace_default2;
+  window.jax.request = namespace_default2.requestElement;
+  window.jax.parseJSON = namespace_default2.parseJSON;
+  window.jax.values = namespace_default2.serializeAsJSON;
   window.jax.Events = Events;
   window.jax.dispatch = Events.dispatch;
   window.jax.trigger = Events.trigger;
@@ -2733,5 +2799,5 @@ var __publicField = (obj, key, value) => {
   window.jax.waitFor = waitFor;
   window.jax.pageReady = domReady;
   window.jax.visit = (url) => window.location.assign(url);
-  AjaxFramework.start();
+  namespace_default2.start();
 })();
