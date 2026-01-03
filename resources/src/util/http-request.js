@@ -13,6 +13,8 @@ export class HttpRequest
         this.failed = false;
         this.progress = 0;
         this.sent = false;
+        this.aborted = false;
+        this.timedOut = false;
 
         this.delegate = delegate;
         this.url = url;
@@ -24,78 +26,173 @@ export class HttpRequest
         this.data = options.data;
         this.timeout = options.timeout || 0;
 
-        // XMLHttpRequest events
-        this.requestProgressed = (event) => {
-            if (event.lengthComputable) {
-                this.setProgress(event.loaded / event.total);
-            }
-        };
+        // AbortController for cancellation and timeout
+        this.controller = new AbortController();
+        this.timeoutId = null;
 
-        this.requestLoaded = () => {
-            this.endRequest(xhr => {
-                this.processResponseData(xhr, (xhr, data) => {
-                    const contentType = xhr.getResponseHeader('Content-Type');
-                    const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
-
-                    if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
-                        this.failed = true;
-                        this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
-                        return;
-                    }
-
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        this.delegate.requestCompletedWithResponse(responseData, xhr.status, contentResponseIsRedirect(xhr, this.url));
-                    }
-                    else {
-                        this.failed = true;
-                        this.delegate.requestFailedWithStatusCode(xhr.status, responseData);
-                    }
-                });
-            });
-        };
-
-        this.requestFailed = () => {
-            this.endRequest(() => {
-                this.failed = true;
-                this.delegate.requestFailedWithStatusCode(SystemStatusCode.networkFailure);
-            });
-        };
-
-        this.requestTimedOut = () => {
-            this.endRequest(() => {
-                this.failed = true;
-                this.delegate.requestFailedWithStatusCode(SystemStatusCode.timeoutFailure);
-            });
-        };
-
-        this.requestCanceled = () => {
-            if (this.options.trackAbort) {
-                this.endRequest(() => {
-                    this.failed = true;
-                    this.delegate.requestFailedWithStatusCode(SystemStatusCode.userAborted);
-                });
-            }
-            else {
-                this.endRequest();
-            }
-        };
-
-        this.createXHR();
+        // XHR compatibility wrapper (populated after response)
+        this.xhr = this.createXhrWrapper();
     }
 
     send() {
-        if (this.xhr && !this.sent) {
-            this.notifyApplicationBeforeRequestStart();
-            this.setProgress(0);
-            this.xhr.send(this.data || null);
-            this.sent = true;
-            this.delegate.requestStarted();
+        if (this.sent) {
+            return;
+        }
+
+        this.sent = true;
+        this.notifyApplicationBeforeRequestStart();
+        this.setProgress(0);
+        this.delegate.requestStarted();
+
+        // Set up timeout
+        if (this.timeout > 0) {
+            this.timeoutId = setTimeout(() => {
+                this.timedOut = true;
+                this.controller.abort();
+            }, this.timeout * 1000);
+        }
+
+        this.performFetch();
+    }
+
+    async performFetch() {
+        try {
+            const response = await fetch(this.url, {
+                method: this.method,
+                headers: this.headers,
+                body: this.data || null,
+                signal: this.controller.signal
+            });
+
+            this.clearTimeout();
+
+            // Update XHR wrapper with response data
+            this.updateXhrWrapper(response);
+
+            // Process the response
+            await this.handleResponse(response);
+
+        }
+        catch (error) {
+            this.clearTimeout();
+
+            if (error.name === 'AbortError') {
+                if (this.timedOut) {
+                    this.handleTimeout();
+                } else {
+                    this.handleAbort();
+                }
+            } else {
+                this.handleNetworkError();
+            }
         }
     }
 
+    async handleResponse(response) {
+        const contentType = response.headers.get('Content-Type');
+
+        // Get response data based on type
+        let data;
+        if (this.responseType === 'blob') {
+            data = await this.processResponseBlob(response);
+        }
+        else {
+            data = await response.text();
+        }
+
+        // Parse JSON if applicable
+        const responseData = contentTypeIsJSON(contentType) ? JSON.parse(data) : data;
+
+        // Check HTML-only constraint
+        if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
+            this.failed = true;
+            this.notifyApplicationAfterRequestEnd();
+            this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
+            this.destroy();
+            return;
+        }
+
+        // Check status code
+        if (response.status >= 200 && response.status < 300) {
+            this.notifyApplicationAfterRequestEnd();
+            this.delegate.requestCompletedWithResponse(
+                responseData,
+                response.status,
+                this.getRedirectLocation(response)
+            );
+            this.destroy();
+        }
+        else {
+            this.failed = true;
+            this.notifyApplicationAfterRequestEnd();
+            this.delegate.requestFailedWithStatusCode(response.status, responseData);
+            this.destroy();
+        }
+    }
+
+    async processResponseBlob(response) {
+        const contentDisposition = response.headers.get('Content-Disposition') || '';
+
+        // If it's an attachment/inline download, return the blob directly
+        if (contentDisposition.indexOf('attachment') === 0 || contentDisposition.indexOf('inline') === 0) {
+            return await response.blob();
+        }
+
+        // Otherwise convert blob to text
+        const blob = await response.blob();
+        return await blob.text();
+    }
+
+    getRedirectLocation(response) {
+        // Check for explicit redirect header
+        const ajaxLocation = response.headers.get('X-AJAX-LOCATION');
+        if (ajaxLocation) {
+            return ajaxLocation;
+        }
+
+        // Check if response URL differs from request URL
+        var anchorMatch = this.url.match(/^(.*)#/),
+            wantUrl = anchorMatch ? anchorMatch[1] : this.url;
+
+        return wantUrl !== response.url ? response.url : null;
+    }
+
+    handleTimeout() {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(SystemStatusCode.timeoutFailure);
+        this.destroy();
+    }
+
+    handleAbort() {
+        if (this.options.trackAbort) {
+            this.failed = true;
+            this.notifyApplicationAfterRequestEnd();
+            this.delegate.requestFailedWithStatusCode(SystemStatusCode.userAborted);
+        } else {
+            this.notifyApplicationAfterRequestEnd();
+        }
+        this.destroy();
+    }
+
+    handleNetworkError() {
+        this.failed = true;
+        this.notifyApplicationAfterRequestEnd();
+        this.delegate.requestFailedWithStatusCode(SystemStatusCode.networkFailure);
+        this.destroy();
+    }
+
     abort() {
-        if (this.xhr && this.sent) {
-            this.xhr.abort();
+        if (this.sent && !this.aborted) {
+            this.aborted = true;
+            this.controller.abort();
+        }
+    }
+
+    clearTimeout() {
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+            this.timeoutId = null;
         }
     }
 
@@ -108,35 +205,25 @@ export class HttpRequest
         Events.dispatch('ajax:request-end', { detail: { url: this.url, xhr: this.xhr }, cancelable: false });
     }
 
-    // Private
-    createXHR() {
-        const xhr = this.xhr = new XMLHttpRequest;
-        xhr.open(this.method, this.url, true);
-        xhr.responseType = this.responseType;
-
-        xhr.onprogress = this.requestProgressed;
-        xhr.onload = this.requestLoaded;
-        xhr.onerror = this.requestFailed;
-        xhr.ontimeout = this.requestTimedOut;
-        xhr.onabort = this.requestCanceled;
-
-        if (this.timeout) {
-            xhr.timeout = this.timeout * 1000;
-        }
-
-        for (var i in this.headers) {
-            xhr.setRequestHeader(i, this.headers[i]);
-        }
-
-        return xhr;
+    // XHR compatibility wrapper
+    createXhrWrapper() {
+        return {
+            status: 0,
+            statusText: '',
+            responseURL: this.url,
+            getResponseHeader: (name) => null,
+            getAllResponseHeaders: () => ''
+        };
     }
 
-    endRequest(callback = () => { }) {
-        if (this.xhr) {
-            this.notifyApplicationAfterRequestEnd();
-            callback(this.xhr);
-            this.destroy();
-        }
+    updateXhrWrapper(response) {
+        this.xhr = {
+            status: response.status,
+            statusText: response.statusText,
+            responseURL: response.url,
+            getResponseHeader: (name) => response.headers.get(name),
+            getAllResponseHeaders: () => [...response.headers].map(([k, v]) => `${k}: ${v}`).join('\r\n')
+        };
     }
 
     setProgress(progress) {
@@ -148,36 +235,6 @@ export class HttpRequest
         this.setProgress(1);
         this.delegate.requestFinished();
     }
-
-    processResponseData(xhr, callback) {
-        if (this.responseType !== 'blob') {
-            callback(xhr, xhr.responseText);
-            return;
-        }
-
-        // Confirm response is a download
-        const contentDisposition = xhr.getResponseHeader('Content-Disposition') || '';
-        if (contentDisposition.indexOf('attachment') === 0 || contentDisposition.indexOf('inline') === 0) {
-            callback(xhr, xhr.response);
-            return;
-        }
-
-        // Convert blob to text
-        const reader = new FileReader;
-        reader.addEventListener('load', () => { callback(xhr, reader.result); });
-        reader.readAsText(xhr.response);
-    }
-}
-
-function contentResponseIsRedirect(xhr, url) {
-    if (xhr.getResponseHeader('X-AJAX-LOCATION')) {
-        return xhr.getResponseHeader('X-AJAX-LOCATION');
-    }
-
-    var anchorMatch = url.match(/^(.*)#/),
-        wantUrl = anchorMatch ? anchorMatch[1] : url;
-
-    return wantUrl !== xhr.responseURL ? xhr.responseURL : null;
 }
 
 function contentTypeIsHTML(contentType) {
