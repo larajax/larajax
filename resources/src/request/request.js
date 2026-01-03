@@ -27,7 +27,6 @@ export class Request
             update: {},
             files: false,
             bulk: false,
-            download: false,
             browserTarget: null,
             browserValidate: false,
             browserRedirectBack: false,

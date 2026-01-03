@@ -66,7 +66,7 @@ export class Actions
         }
 
         // Download file and continue with success response here since data is unusable
-        if (this.delegate.options.download && data instanceof Blob) {
+        if (data instanceof Blob) {
             this.invoke('handleFileDownload', [data, xhr]);
             this.delegate.notifyApplicationRequestSuccess(data, responseCode, xhr);
             this.invokeFunc('successFunc', data);
@@ -407,10 +407,7 @@ export class Actions
             return;
         }
 
-        const fileName = typeof this.options.download === 'string'
-            ? this.options.download
-            : getFilenameFromHttpResponse(xhr);
-
+        const fileName = getFilenameFromHttpResponse(xhr);
         if (!fileName) {
             return;
         }
