@@ -10,24 +10,44 @@
 
 Extracted from the original [October CMS AJAX framework](https://docs.octobercms.com/4.x/ajax/introduction.html) and maintained by the [October CMS team](https://github.com/octobercms).
 
-## Learning Larajax
+## About Larajax
 
-The best place to learn Larajax is by [reading the documentation](https://larajax.org).
+Larajax lets you define AJAX handlers directly inside Laravel controllers and trigger them from HTML using simple `data-request` attributes -- no separate API routes required.
 
-## Features
+```php
+// One route, multiple handlers
+Route::any('/profile', [ProfileController::class, 'index']);
 
-- Define AJAX handlers directly inside controllers (`onSave`, `onSendMessage`).
-- Trigger handlers from HTML using `data-request`.
-- Call handlers programmatically using `jax.ajax()`.
-- Update view fragments without wiring `fetch()` by hand.
-- Keep internal actions local to the page controller.
-- One page route instead of many internal endpoints.
-- Built-in CSRF protection, validation, and error handling.
-- Works with Laravel Blade and October CMS.
+class ProfileController extends LarajaxController
+{
+    public function onUpdateProfile() { /* ... */ }
+    public function onDeleteAccount() { /* ... */ }
+}
+```
 
-## Foundation library
+```html
+<button data-request="onUpdateProfile">Save</button>
+```
 
-Larajax uses [Laravel](https://laravel.com) as a foundation PHP framework.
+### Key Features
+- 📦 Define AJAX handlers directly in controllers
+- 🎯 Trigger handlers from HTML with `data-request`
+- 🔄 DOM patching without manual fetch wiring
+- ✅ Built-in CSRF, validation, and error handling
+- 🧩 Reusable components system
+- ⚡ Dynamic asset loading (JS, CSS, images)
+- 🚀 Turbo Router for SPA-like navigation
+
+## Installation
+
+```bash
+composer require larajax/larajax
+```
+
+## Resources
+
+- 📚 **Documentation**: [larajax.org](https://larajax.org)
+- 💻 **Source**: [github.com/larajax/larajax](https://github.com/larajax/larajax)
 
 ## License
 
