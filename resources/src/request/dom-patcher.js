@@ -71,10 +71,12 @@ export class DomPatcher
                 element.insertAdjacentHTML('beforeend', content);
                 runScriptsOnFragment(element, content);
                 break;
+            case 'after':
             case 'afterend':
                 element.insertAdjacentHTML('afterend', content);
                 runScriptsOnFragment(element, content);
                 break;
+            case 'before':
             case 'beforebegin':
                 element.insertAdjacentHTML('beforebegin', content);
                 runScriptsOnFragment(element, content);
