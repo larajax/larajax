@@ -93,14 +93,6 @@ trait HasAccessors
     }
 
     /**
-     * Alias for getStatusCode().
-     */
-    public function getStatus(): int
-    {
-        return $this->getStatusCode();
-    }
-
-    /**
      * Get the response headers.
      */
     public function getHeaders(): array
