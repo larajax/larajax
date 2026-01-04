@@ -24,7 +24,7 @@ export class DomPatcher
     }
 
     // Should patch the dom using the envelope.getPartials()
-    // which is expected to be { partialName: html contents }
+    // which is expected to be { name: partialName, html: contents }
     applyPartialUpdates() {
         const partials = this.envelope.getPartials();
 
@@ -34,12 +34,12 @@ export class DomPatcher
 
             // If the update options has a _self, values like true and '^' will resolve to the partial element,
             // these values are also used to make AJAX partial handlers available without performing an update
-            if (this.partialMap['_self'] && partial == this.options.partial && this.options.partialEl) {
+            if (this.partialMap['_self'] && partial.name == this.options.partial && this.options.partialEl) {
                 selector = this.partialMap['_self'];
                 selectedEl = [this.options.partialEl];
             }
             else if (selector) {
-                selectedEl = resolveSelectorResponse(selector, '[data-ajax-partial="'+partial+'"]');
+                selectedEl = resolveSelectorResponse(selector, '[data-ajax-partial="'+partial.name+'"]');
             }
 
             selectedEl.forEach((el) => {
