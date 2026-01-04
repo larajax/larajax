@@ -1,7 +1,9 @@
 {
     "name": "larajax/larajax",
-    "description": "Laravel implementation of the October AJAX server logic.",
+    "description": "A small AJAX framework for Laravel, built to bring simplicity back to Laravel development.",
+    "license": "MIT",
     "type": "library",
+    "homepage": "https://larajax.org",
     "authors": [
         {
             "name": "Samuel Georges",

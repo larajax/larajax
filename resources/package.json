@@ -1,7 +1,9 @@
 {
     "name": "larajax",
     "version": "2.0.1",
-    "description": "Laravel implementation of the October AJAX server logic.",
+    "description": "A small AJAX framework for Laravel, built to bring simplicity back to Laravel development.",
+    "license": "MIT",
+    "author": "Responsiv Pty. Ltd. (trading as October CMS)",
     "type": "module",
     "main": "./src/index.js",
     "module": "./src/index.js",

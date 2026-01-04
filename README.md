@@ -28,3 +28,7 @@ The best place to learn Larajax is by [reading the documentation](https://laraja
 ## Foundation library
 
 Larajax uses [Laravel](https://laravel.com) as a foundation PHP framework.
+
+## License
+
+Larajax is open-sourced software licensed under the [MIT license](LICENSE.md).
