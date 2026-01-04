@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 class AjaxResponse implements Responsable
 {
     use \Larajax\Classes\AjaxResponse\HasOverrides;
+    use \Larajax\Classes\AjaxResponse\HasAccessors;
 
     const SEVERITY_INFO = 'info';
     const SEVERITY_ERROR = 'error';
