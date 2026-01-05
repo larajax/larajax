@@ -435,7 +435,7 @@ var jax = (() => {
   var AssetManager = class _AssetManager {
     /**
      * Load a collection of assets.
-     * @param {{js?: Array<{url: string, attributes?: object}>, css?: Array<{url: string, attributes?: object}>, img?: Array<{url: string, attributes?: object}>}} collection
+     * @param {{js?: Array<string|{url: string, attributes?: object}>, css?: Array<string|{url: string, attributes?: object}>, img?: Array<string|{url: string, attributes?: object}>}} collection
      * @param {(err?: Error) => void} [callback]  // optional; called on success or with error
      * @returns {Promise<void>}
      */
@@ -447,9 +447,9 @@ var jax = (() => {
       return promise;
     }
     async loadCollection(collection = {}) {
-      const jsList = (collection.js ?? []).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
-      const cssList = (collection.css ?? []).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
-      const imgList = collection.img ?? [];
+      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+      const cssList = (collection.css ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
+      const imgList = (collection.img ?? []).map(normalizeAsset);
       if (!jsList.length && !cssList.length && !imgList.length) {
         return;
       }
@@ -515,6 +515,9 @@ var jax = (() => {
       })));
     }
   };
+  function normalizeAsset(asset) {
+    return typeof asset === "string" ? { url: asset } : asset;
+  }
   function htmlEscape(value) {
     return String(value).replace(/"/g, '\\"');
   }
@@ -541,17 +544,17 @@ var jax = (() => {
       this.afterUpdateCallback = callback;
     }
     // Should patch the dom using the envelope.getPartials()
-    // which is expected to be { partialName: html contents }
+    // which is expected to be { name: partialName, html: contents }
     applyPartialUpdates() {
       const partials = this.envelope.getPartials();
       partials.forEach((partial) => {
         let selector = this.partialMap[partial.name];
         let selectedEl = [];
-        if (this.partialMap["_self"] && partial == this.options.partial && this.options.partialEl) {
+        if (this.partialMap["_self"] && partial.name == this.options.partial && this.options.partialEl) {
           selector = this.partialMap["_self"];
           selectedEl = [this.options.partialEl];
         } else if (selector) {
-          selectedEl = resolveSelectorResponse(selector, '[data-ajax-partial="' + partial + '"]');
+          selectedEl = resolveSelectorResponse(selector, '[data-ajax-partial="' + partial.name + '"]');
         }
         selectedEl.forEach((el) => {
           this.patchDom(
@@ -668,9 +671,28 @@ var jax = (() => {
     });
   }
 
+  // src/util/turbo.js
+  var _turboProvider = null;
+  function registerTurbo(turbo) {
+    _turboProvider = turbo;
+  }
+  function isTurboEnabled() {
+    return _turboProvider?.isEnabled() ?? false;
+  }
+  function turboVisit(url, options) {
+    if (_turboProvider) {
+      _turboProvider.visit(url, options);
+      return true;
+    }
+    return false;
+  }
+  function getTurboController() {
+    return _turboProvider?.controller ?? null;
+  }
+
   // src/util/referrer.js
   function getReferrerUrl() {
-    const url = jax.useTurbo && jax.useTurbo() ? jax.AjaxTurbo.controller.getLastVisitUrl() : getReferrerFromSameOrigin();
+    const url = isTurboEnabled() ? getTurboController().getLastVisitUrl() : getReferrerFromSameOrigin();
     if (!url || isSameBaseUrl(url)) {
       return null;
     }
@@ -996,8 +1018,8 @@ var jax = (() => {
       if (this.options.browserRedirectBack) {
         href = getReferrerUrl() || href;
       }
-      if (jax.useTurbo && jax.useTurbo()) {
-        jax.visit(href);
+      if (isTurboEnabled()) {
+        turboVisit(href);
       } else {
         location.assign(href);
       }
@@ -1112,8 +1134,8 @@ var jax = (() => {
       if (queryStr) {
         newUrl += "?" + queryStr.replaceAll("%5B%5D=", "[]=");
       }
-      if (jax.useTurbo && jax.useTurbo()) {
-        jax.visit(newUrl, { action: "swap", scroll: false });
+      if (isTurboEnabled()) {
+        turboVisit(newUrl, { action: "swap", scroll: false });
       } else {
         history.replaceState(null, "", newUrl);
         localStorage.setItem("ocPushStateReferrer", newUrl);
