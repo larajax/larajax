@@ -1,9 +1,11 @@
+import { isTurboEnabled, getTurboController } from "./turbo";
+
 /**
  * getReferrerUrl returns the last visited URL
  */
 export function getReferrerUrl() {
-    const url = jax.useTurbo && jax.useTurbo()
-        ? jax.AjaxTurbo.controller.getLastVisitUrl()
+    const url = isTurboEnabled()
+        ? getTurboController().getLastVisitUrl()
         : getReferrerFromSameOrigin();
 
 

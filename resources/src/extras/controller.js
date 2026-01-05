@@ -3,6 +3,7 @@ import { AttachLoader } from "./attach-loader";
 import { FlashMessage } from "./flash-message";
 import { Events } from "../util/events";
 import { getReferrerUrl } from "../util/referrer";
+import { isTurboEnabled, turboVisit } from "../util/turbo";
 
 export class Controller
 {
@@ -100,8 +101,8 @@ export class Controller
             }
 
             event.preventDefault();
-            if (jax.useTurbo && jax.useTurbo()) {
-                jax.visit(href);
+            if (isTurboEnabled()) {
+                turboVisit(href);
             }
             else {
                 location.assign(href);

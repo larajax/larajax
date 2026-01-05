@@ -16,6 +16,9 @@ import { ControlBase } from "./observe/control-base";
 import { AssetManager } from "./request/asset-manager";
 import { Events } from "./util/events";
 import { waitFor } from "./util/wait";
+import { registerTurbo } from "./util/turbo";
+
+registerTurbo(AjaxTurbo);
 
 if (!window.jax) {
     window.jax = {};

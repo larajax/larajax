@@ -2,6 +2,7 @@ import { AssetManager } from "./asset-manager";
 import { DomPatcher, resolveSelectorResponse } from "./dom-patcher";
 import { getReferrerUrl } from "../util/referrer";
 import { decoratePromiseProxy } from "../util/promise";
+import { isTurboEnabled, turboVisit } from "../util/turbo";
 
 export class Actions
 {
@@ -292,8 +293,8 @@ export class Actions
             href = getReferrerUrl() || href;
         }
 
-        if (jax.useTurbo && jax.useTurbo()) {
-            jax.visit(href);
+        if (isTurboEnabled()) {
+            turboVisit(href);
         }
         else {
             location.assign(href);
@@ -446,8 +447,8 @@ export class Actions
             newUrl += '?' + queryStr.replaceAll('%5B%5D=', '[]=')
         }
 
-        if (jax.useTurbo && jax.useTurbo()) {
-            jax.visit(newUrl, { action: 'swap', scroll: false });
+        if (isTurboEnabled()) {
+            turboVisit(newUrl, { action: 'swap', scroll: false });
         }
         else {
             history.replaceState(null, '', newUrl);

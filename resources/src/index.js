@@ -32,6 +32,9 @@ import { ControlBase } from "./observe/control-base";
 import { AssetManager } from "./request/asset-manager";
 import { Events } from "./util/events";
 import { waitFor, domReady } from "./util/wait";
+import { registerTurbo } from "./util/turbo";
+
+registerTurbo(AjaxTurbo);
 
 export const jax = {
     // Request
