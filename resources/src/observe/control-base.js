@@ -1,3 +1,4 @@
+import { Events } from "../util/events";
 
 class ControlBase
 {
@@ -77,13 +78,13 @@ class ControlBase
     // Events
     listen(eventName, targetOrHandler, handlerOrOptions, options) {
         if (typeof targetOrHandler === 'string') {
-            jax.Events.on(this.element, eventName, targetOrHandler, this.proxy(handlerOrOptions), options);
+            Events.on(this.element, eventName, targetOrHandler, this.proxy(handlerOrOptions), options);
         }
         else if (targetOrHandler instanceof Element) {
-            jax.Events.on(targetOrHandler, eventName, this.proxy(handlerOrOptions), options);
+            Events.on(targetOrHandler, eventName, this.proxy(handlerOrOptions), options);
         }
         else {
-            jax.Events.on(this.element, eventName, this.proxy(targetOrHandler), handlerOrOptions);
+            Events.on(this.element, eventName, this.proxy(targetOrHandler), handlerOrOptions);
         }
 
         // Automatic unbinding
@@ -93,13 +94,13 @@ class ControlBase
 
     forget(eventName, targetOrHandler, handlerOrOptions, options) {
         if (typeof targetOrHandler === 'string') {
-            jax.Events.off(this.element, eventName, targetOrHandler, this.proxy(handlerOrOptions), options);
+            Events.off(this.element, eventName, targetOrHandler, this.proxy(handlerOrOptions), options);
         }
         else if (targetOrHandler instanceof Element) {
-            jax.Events.off(targetOrHandler, eventName, this.proxy(handlerOrOptions), options);
+            Events.off(targetOrHandler, eventName, this.proxy(handlerOrOptions), options);
         }
         else {
-            jax.Events.off(this.element, eventName, this.proxy(targetOrHandler), handlerOrOptions);
+            Events.off(this.element, eventName, this.proxy(targetOrHandler), handlerOrOptions);
         }
 
         // Fills JS gap
