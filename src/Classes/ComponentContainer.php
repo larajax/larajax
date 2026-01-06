@@ -2,10 +2,14 @@
 
 namespace Larajax\Classes;
 
+use IteratorAggregate;
+use Traversable;
+use ArrayIterator;
+
 /**
  * ComponentContainer
  */
-class ComponentContainer
+class ComponentContainer implements IteratorAggregate
 {
     /**
      * @var object controller instance
@@ -106,5 +110,13 @@ class ComponentContainer
     public function __get($key)
     {
         return $this->make($key);
+    }
+
+    /**
+     * getIterator returns an iterator for the components.
+     */
+    public function getIterator(): Traversable
+    {
+        return new ArrayIterator($this->componentData['components']);
     }
 }
