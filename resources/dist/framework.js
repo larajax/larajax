@@ -2537,7 +2537,7 @@ var jax = (() => {
     getDefaultTrigger() {
       const el = this.element;
       const tag = el.tagName.toLowerCase();
-      const type = el.type?.toLowerCase();
+      const type = el.getAttribute("type")?.toLowerCase();
       if (tag === "form") return "submit";
       if (tag === "a") return "click";
       if (tag === "button") return "click";
