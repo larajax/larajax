@@ -689,6 +689,9 @@
   function getTurboController() {
     return _turboProvider?.controller ?? null;
   }
+  function turboPageReady() {
+    return _turboProvider?.pageReady() ?? null;
+  }
 
   // src/util/referrer.js
   function getReferrerUrl() {
@@ -2667,6 +2670,37 @@
     }
   };
 
+  // src/util/wait.js
+  function waitFor(predicate, timeout) {
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        if (!predicate()) {
+          return;
+        }
+        clearInterval(interval);
+        resolve();
+      };
+      const interval = setInterval(check, 100);
+      check();
+      if (!timeout) {
+        return;
+      }
+      setTimeout(() => {
+        clearInterval(interval);
+        reject();
+      }, timeout);
+    });
+  }
+  function domReady() {
+    return new Promise((resolve) => {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => resolve());
+      } else {
+        resolve();
+      }
+    });
+  }
+
   // src/core/controller.js
   var Controller = class {
     constructor() {
@@ -2757,6 +2791,13 @@
     documentOnBeforeUnload(event) {
       window.jaxUnloading = true;
     }
+    /**
+     * Wait for the page to be ready.
+     * Uses Turbo's pageReady if available, otherwise falls back to domReady.
+     */
+    pageReady() {
+      return turboPageReady() ?? domReady();
+    }
   };
 
   // src/core/namespace.js
@@ -2766,6 +2807,9 @@
     parseJSON: JsonParser.parseJSON,
     serializeAsJSON: FormSerializer.serializeAsJSON,
     requestElement: RequestBuilder.fromElement,
+    pageReady() {
+      return controller.pageReady();
+    },
     start() {
       controller.start();
     },
@@ -4203,37 +4247,6 @@
     }
   };
 
-  // src/util/wait.js
-  function waitFor(predicate, timeout) {
-    return new Promise((resolve, reject) => {
-      const check = () => {
-        if (!predicate()) {
-          return;
-        }
-        clearInterval(interval);
-        resolve();
-      };
-      const interval = setInterval(check, 100);
-      check();
-      if (!timeout) {
-        return;
-      }
-      setTimeout(() => {
-        clearInterval(interval);
-        reject();
-      }, timeout);
-    });
-  }
-  function domReady() {
-    return new Promise((resolve) => {
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => resolve());
-      } else {
-        resolve();
-      }
-    });
-  }
-
   // src/observe/application.js
   var Application = class {
     constructor() {
@@ -5406,10 +5419,10 @@
     }
     pageReady() {
       return new Promise((resolve) => {
-        if (!this.pageIsReady) {
-          addEventListener("render", () => resolve(), { once: true });
-        } else {
+        if (this.pageIsReady) {
           resolve();
+        } else {
+          addEventListener("render", () => resolve(), { once: true });
         }
       });
     }
@@ -5859,7 +5872,6 @@
       AssetManager: AssetManager2,
       Events: Events2,
       waitFor: waitFor2,
-      pageReady,
       visit,
       // Optional modules
       AjaxExtras,
@@ -5877,6 +5889,7 @@
       request: AjaxFramework.requestElement,
       parseJSON: AjaxFramework.parseJSON,
       values: AjaxFramework.serializeAsJSON,
+      pageReady: AjaxFramework.pageReady,
       // Util
       Events: Events2,
       dispatch: Events2.dispatch,
@@ -5885,7 +5898,6 @@
       off: Events2.off,
       one: Events2.one,
       waitFor: waitFor2,
-      pageReady,
       visit
     };
     if (AjaxExtras) {
@@ -5923,7 +5935,6 @@
     AssetManager,
     Events,
     waitFor,
-    pageReady: namespace_default5.pageReady,
     visit: namespace_default5.visit,
     AjaxExtras: namespace_default3,
     AjaxObserve: namespace_default4,
