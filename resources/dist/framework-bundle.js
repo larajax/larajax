@@ -1,7 +1,29 @@
 var jax = (() => {
   var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+
+  // src/framework-bundle.js
+  var framework_bundle_exports = {};
+  __export(framework_bundle_exports, {
+    default: () => framework_bundle_default
+  });
 
   // src/util/index.js
   function dispatch(eventName, { target = document, detail = {}, bubbles = true, cancelable = true } = {}) {
@@ -2670,6 +2692,9 @@ var jax = (() => {
   // src/core/controller.js
   var Controller = class {
     constructor() {
+      __publicField(this, "onRender", () => {
+        this.render();
+      });
       /**
        * Handle delegated trigger events
        */
@@ -2690,20 +2715,29 @@ var jax = (() => {
     }
     start() {
       if (!this.started) {
-        window.onbeforeunload = this.documentOnBeforeUnload;
+        addEventListener("beforeunload", this.documentOnBeforeUnload);
         Events.on(document, "click", "[data-request]", this.onTriggerEvent);
         Events.on(document, "submit", "[data-request]", this.onTriggerEvent);
         Events.on(document, "change", "[data-request]", this.onTriggerEvent);
         Events.on(document, "input", "[data-request]", this.onTriggerEvent);
         Events.on(document, "ajax:trigger", "[data-request]", this.onTriggerEvent);
-        addEventListener("DOMContentLoaded", () => this.render());
-        addEventListener("page:updated", () => this.render());
-        addEventListener("ajax:update-complete", () => this.render());
+        addEventListener("DOMContentLoaded", this.onRender);
+        addEventListener("page:updated", this.onRender);
+        addEventListener("ajax:update-complete", this.onRender);
         this.started = true;
       }
     }
     stop() {
       if (this.started) {
+        removeEventListener("beforeunload", this.documentOnBeforeUnload);
+        Events.off(document, "click", "[data-request]", this.onTriggerEvent);
+        Events.off(document, "submit", "[data-request]", this.onTriggerEvent);
+        Events.off(document, "change", "[data-request]", this.onTriggerEvent);
+        Events.off(document, "input", "[data-request]", this.onTriggerEvent);
+        Events.off(document, "ajax:trigger", "[data-request]", this.onTriggerEvent);
+        removeEventListener("DOMContentLoaded", this.onRender);
+        removeEventListener("page:updated", this.onRender);
+        removeEventListener("ajax:update-complete", this.onRender);
         this.started = false;
       }
     }
@@ -5839,42 +5873,89 @@ var jax = (() => {
   __publicField(_ControlBase, "proxyCounter", 0);
   var ControlBase = _ControlBase;
 
+  // src/util/jax-builder.js
+  function buildJaxObject(modules) {
+    const {
+      AjaxFramework,
+      AjaxRequest,
+      AssetManager: AssetManager2,
+      Events: Events2,
+      waitFor: waitFor2,
+      pageReady,
+      visit,
+      // Optional modules
+      AjaxExtras,
+      AjaxObserve,
+      AjaxTurbo,
+      ControlBase: ControlBase2
+    } = modules;
+    const jax = {
+      // Request
+      AjaxRequest,
+      AssetManager: AssetManager2,
+      ajax: AjaxRequest.send,
+      // Core
+      AjaxFramework,
+      request: AjaxFramework.requestElement,
+      parseJSON: AjaxFramework.parseJSON,
+      values: AjaxFramework.serializeAsJSON,
+      // Util
+      Events: Events2,
+      dispatch: Events2.dispatch,
+      trigger: Events2.trigger,
+      on: Events2.on,
+      off: Events2.off,
+      one: Events2.one,
+      waitFor: waitFor2,
+      pageReady,
+      visit
+    };
+    if (AjaxExtras) {
+      jax.AjaxExtras = AjaxExtras;
+      jax.flashMsg = AjaxExtras.flashMsg;
+      jax.progressBar = AjaxExtras.progressBar;
+      jax.attachLoader = AjaxExtras.attachLoader;
+    }
+    if (AjaxObserve) {
+      jax.AjaxObserve = AjaxObserve;
+      jax.registerControl = AjaxObserve.registerControl;
+      jax.importControl = AjaxObserve.importControl;
+      jax.observeControl = AjaxObserve.observeControl;
+      jax.fetchControl = AjaxObserve.fetchControl;
+      jax.fetchControls = AjaxObserve.fetchControls;
+    }
+    if (ControlBase2) {
+      jax.ControlBase = ControlBase2;
+    }
+    if (AjaxTurbo) {
+      registerTurbo(AjaxTurbo);
+      jax.AjaxTurbo = AjaxTurbo;
+      jax.useTurbo = AjaxTurbo.isEnabled;
+    }
+    return jax;
+  }
+
   // src/framework-bundle.js
-  registerTurbo(namespace_default5);
   if (!window.jax) {
     window.jax = {};
   }
-  window.jax.AjaxRequest = namespace_default;
-  window.jax.AssetManager = AssetManager;
-  window.jax.ajax = namespace_default.send;
-  window.jax.AjaxFramework = namespace_default2;
-  window.jax.request = namespace_default2.requestElement;
-  window.jax.parseJSON = namespace_default2.parseJSON;
-  window.jax.values = namespace_default2.serializeAsJSON;
-  window.jax.AjaxExtras = namespace_default3;
-  window.jax.flashMsg = namespace_default3.flashMsg;
-  window.jax.progressBar = namespace_default3.progressBar;
-  window.jax.attachLoader = namespace_default3.attachLoader;
-  window.jax.AjaxObserve = namespace_default4;
-  window.jax.ControlBase = ControlBase;
-  window.jax.registerControl = namespace_default4.registerControl;
-  window.jax.importControl = namespace_default4.importControl;
-  window.jax.observeControl = namespace_default4.observeControl;
-  window.jax.fetchControl = namespace_default4.fetchControl;
-  window.jax.fetchControls = namespace_default4.fetchControls;
-  window.jax.AjaxTurbo = namespace_default5;
-  window.jax.useTurbo = namespace_default5.isEnabled;
-  window.jax.visit = namespace_default5.visit;
-  window.jax.pageReady = namespace_default5.pageReady;
-  window.jax.Events = Events;
-  window.jax.dispatch = Events.dispatch;
-  window.jax.trigger = Events.trigger;
-  window.jax.on = Events.on;
-  window.jax.off = Events.off;
-  window.jax.one = Events.one;
-  window.jax.waitFor = waitFor;
+  Object.assign(window.jax, buildJaxObject({
+    AjaxFramework: namespace_default2,
+    AjaxRequest: namespace_default,
+    AssetManager,
+    Events,
+    waitFor,
+    pageReady: namespace_default5.pageReady,
+    visit: namespace_default5.visit,
+    AjaxExtras: namespace_default3,
+    AjaxObserve: namespace_default4,
+    AjaxTurbo: namespace_default5,
+    ControlBase
+  }));
   namespace_default2.start();
   namespace_default3.start();
   namespace_default4.start();
   namespace_default5.start();
+  var framework_bundle_default = window.jax;
+  return __toCommonJS(framework_bundle_exports);
 })();
