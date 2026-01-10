@@ -1,3 +1,5 @@
+import { registerTurbo } from "./turbo";
+
 /**
  * Builds the jax object from provided modules
  * Used by framework.js, framework-bundle.js, and index.js to reduce duplication
@@ -67,6 +69,7 @@ export function buildJaxObject(modules) {
 
     // Turbo (optional)
     if (AjaxTurbo) {
+        registerTurbo(AjaxTurbo);
         jax.AjaxTurbo = AjaxTurbo;
         jax.useTurbo = AjaxTurbo.isEnabled;
     }
