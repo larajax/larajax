@@ -17,6 +17,7 @@ import { AssetManager } from "./request/asset-manager";
 import { Events } from "./util/events";
 import { waitFor } from "./util/wait";
 import { registerTurbo } from "./util/turbo";
+import { buildJaxObject } from "./util/jax-builder";
 
 registerTurbo(AjaxTurbo);
 
@@ -24,46 +25,19 @@ if (!window.jax) {
     window.jax = {};
 }
 
-// Request
-window.jax.AjaxRequest = AjaxRequest;
-window.jax.AssetManager = AssetManager;
-window.jax.ajax = AjaxRequest.send;
-
-// Core
-window.jax.AjaxFramework = AjaxFramework;
-window.jax.request = AjaxFramework.requestElement;
-window.jax.parseJSON = AjaxFramework.parseJSON;
-window.jax.values = AjaxFramework.serializeAsJSON;
-
-// Extras
-window.jax.AjaxExtras = AjaxExtras;
-window.jax.flashMsg = AjaxExtras.flashMsg;
-window.jax.progressBar = AjaxExtras.progressBar;
-window.jax.attachLoader = AjaxExtras.attachLoader;
-
-// Observe
-window.jax.AjaxObserve = AjaxObserve;
-window.jax.ControlBase = ControlBase;
-window.jax.registerControl = AjaxObserve.registerControl;
-window.jax.importControl = AjaxObserve.importControl;
-window.jax.observeControl = AjaxObserve.observeControl;
-window.jax.fetchControl = AjaxObserve.fetchControl;
-window.jax.fetchControls = AjaxObserve.fetchControls;
-
-// Turbo
-window.jax.AjaxTurbo = AjaxTurbo;
-window.jax.useTurbo = AjaxTurbo.isEnabled;
-window.jax.visit = AjaxTurbo.visit;
-window.jax.pageReady = AjaxTurbo.pageReady;
-
-// Util
-window.jax.Events = Events;
-window.jax.dispatch = Events.dispatch;
-window.jax.trigger = Events.trigger;
-window.jax.on = Events.on;
-window.jax.off = Events.off;
-window.jax.one = Events.one;
-window.jax.waitFor = waitFor;
+Object.assign(window.jax, buildJaxObject({
+    AjaxFramework,
+    AjaxRequest,
+    AssetManager,
+    Events,
+    waitFor,
+    pageReady: AjaxTurbo.pageReady,
+    visit: AjaxTurbo.visit,
+    AjaxExtras,
+    AjaxObserve,
+    AjaxTurbo,
+    ControlBase,
+}));
 
 // Auto-start all modules
 AjaxFramework.start();

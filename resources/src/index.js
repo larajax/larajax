@@ -33,50 +33,24 @@ import { AssetManager } from "./request/asset-manager";
 import { Events } from "./util/events";
 import { waitFor } from "./util/wait";
 import { registerTurbo } from "./util/turbo";
+import { buildJaxObject } from "./util/jax-builder";
 
 registerTurbo(AjaxTurbo);
 
 export const jax = {
-    // Request
-    AjaxRequest,
-    AssetManager,
-    ajax: AjaxRequest.send,
-
-    // Core
-    AjaxFramework,
-    request: AjaxFramework.requestElement,
-    parseJSON: AjaxFramework.parseJSON,
-    values: AjaxFramework.serializeAsJSON,
-
-    // Extras
-    AjaxExtras,
-    flashMsg: AjaxExtras.flashMsg,
-    progressBar: AjaxExtras.progressBar,
-    attachLoader: AjaxExtras.attachLoader,
-
-    // Observe
-    AjaxObserve,
-    ControlBase,
-    registerControl: AjaxObserve.registerControl,
-    importControl: AjaxObserve.importControl,
-    observeControl: AjaxObserve.observeControl,
-    fetchControl: AjaxObserve.fetchControl,
-    fetchControls: AjaxObserve.fetchControls,
-
-    // Turbo
-    AjaxTurbo,
-    useTurbo: AjaxTurbo.isEnabled,
-    visit: AjaxTurbo.visit,
-    pageReady: AjaxTurbo.pageReady,
-
-    // Util
-    Events,
-    dispatch: Events.dispatch,
-    trigger: Events.trigger,
-    on: Events.on,
-    off: Events.off,
-    one: Events.one,
-    waitFor,
+    ...buildJaxObject({
+        AjaxFramework,
+        AjaxRequest,
+        AssetManager,
+        Events,
+        waitFor,
+        pageReady: AjaxTurbo.pageReady,
+        visit: AjaxTurbo.visit,
+        AjaxExtras,
+        AjaxObserve,
+        AjaxTurbo,
+        ControlBase,
+    }),
 
     // Start all modules
     start() {
