@@ -30,6 +30,3 @@ Object.assign(window.jax, buildJaxObject({
 
 // Auto-start
 AjaxFramework.start();
-
-// Export for IIFE global assignment
-export default window.jax;

@@ -15,7 +15,6 @@ await esbuild.build({
     entryPoints: [`src/${entry}.js`],
     bundle: true,
     format: 'iife',
-    globalName: 'jax',
     outfile: `dist/${entry}${isProduction ? '.min' : ''}.js`,
     minify: isProduction,
     treeShaking: false,
