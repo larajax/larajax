@@ -11,7 +11,7 @@ export class Controller
     start() {
         if (!this.started) {
             // Track unload event for request lib
-            window.onbeforeunload = this.documentOnBeforeUnload;
+            addEventListener('beforeunload', this.documentOnBeforeUnload);
 
             // Document-level delegation for native events
             Events.on(document, 'click', '[data-request]', this.onTriggerEvent);
@@ -23,13 +23,13 @@ export class Controller
             Events.on(document, 'ajax:trigger', '[data-request]', this.onTriggerEvent);
 
             // First page load
-            addEventListener('DOMContentLoaded', () => this.render());
+            addEventListener('DOMContentLoaded', this.onRender);
 
             // Again, after new scripts load
-            addEventListener('page:updated', () => this.render());
+            addEventListener('page:updated', this.onRender);
 
             // Again after AJAX request
-            addEventListener('ajax:update-complete', () => this.render());
+            addEventListener('ajax:update-complete', this.onRender);
 
             this.started = true;
         }
@@ -37,8 +37,24 @@ export class Controller
 
     stop() {
         if (this.started) {
+            removeEventListener('beforeunload', this.documentOnBeforeUnload);
+
+            Events.off(document, 'click', '[data-request]', this.onTriggerEvent);
+            Events.off(document, 'submit', '[data-request]', this.onTriggerEvent);
+            Events.off(document, 'change', '[data-request]', this.onTriggerEvent);
+            Events.off(document, 'input', '[data-request]', this.onTriggerEvent);
+            Events.off(document, 'ajax:trigger', '[data-request]', this.onTriggerEvent);
+
+            removeEventListener('DOMContentLoaded', this.onRender);
+            removeEventListener('page:updated', this.onRender);
+            removeEventListener('ajax:update-complete', this.onRender);
+
             this.started = false;
         }
+    }
+
+    onRender = () => {
+        this.render();
     }
 
     render() {
