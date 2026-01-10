@@ -70,3 +70,6 @@ AjaxFramework.start();
 AjaxExtras.start();
 AjaxObserve.start();
 AjaxTurbo.start();
+
+// Export for IIFE global assignment
+export default window.jax;

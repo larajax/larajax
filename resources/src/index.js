@@ -31,7 +31,7 @@ import AjaxTurbo from "./turbo/namespace";
 import { ControlBase } from "./observe/control-base";
 import { AssetManager } from "./request/asset-manager";
 import { Events } from "./util/events";
-import { waitFor, domReady } from "./util/wait";
+import { waitFor } from "./util/wait";
 import { registerTurbo } from "./util/turbo";
 
 registerTurbo(AjaxTurbo);
@@ -67,6 +67,7 @@ export const jax = {
     AjaxTurbo,
     useTurbo: AjaxTurbo.isEnabled,
     visit: AjaxTurbo.visit,
+    pageReady: AjaxTurbo.pageReady,
 
     // Util
     Events,
@@ -76,7 +77,6 @@ export const jax = {
     off: Events.off,
     one: Events.one,
     waitFor,
-    pageReady: domReady,
 
     // Start all modules
     start() {

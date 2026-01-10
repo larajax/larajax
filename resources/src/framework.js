@@ -43,3 +43,6 @@ window.jax.visit = (url) => window.location.assign(url);
 
 // Auto-start
 AjaxFramework.start();
+
+// Export for IIFE global assignment
+export default window.jax;
