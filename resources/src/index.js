@@ -41,7 +41,6 @@ export const jax = {
         AssetManager,
         Events,
         waitFor,
-        pageReady: AjaxTurbo.pageReady,
         visit: AjaxTurbo.visit,
         AjaxExtras,
         AjaxObserve,

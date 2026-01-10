@@ -91,11 +91,11 @@ export class Controller
 
     pageReady() {
         return new Promise((resolve) => {
-            if (!this.pageIsReady) {
-                addEventListener('render', () => resolve(), { once: true });
+            if (this.pageIsReady) {
+                resolve();
             }
             else {
-                resolve();
+                addEventListener('render', () => resolve(), { once: true });
             }
         });
     }

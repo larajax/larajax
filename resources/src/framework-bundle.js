@@ -28,7 +28,6 @@ Object.assign(window.jax, buildJaxObject({
     AssetManager,
     Events,
     waitFor,
-    pageReady: AjaxTurbo.pageReady,
     visit: AjaxTurbo.visit,
     AjaxExtras,
     AjaxObserve,

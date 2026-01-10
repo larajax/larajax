@@ -1,5 +1,7 @@
 import { Events } from "../util/events";
 import { Trigger } from "./trigger";
+import { turboPageReady } from "../util/turbo";
+import { domReady } from "../util/wait";
 
 export class Controller
 {
@@ -127,5 +129,13 @@ export class Controller
 
     documentOnBeforeUnload(event) {
         window.jaxUnloading = true;
+    }
+
+    /**
+     * Wait for the page to be ready.
+     * Uses Turbo's pageReady if available, otherwise falls back to domReady.
+     */
+    pageReady() {
+        return turboPageReady() ?? domReady();
     }
 }

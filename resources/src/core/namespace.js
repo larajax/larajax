@@ -13,6 +13,10 @@ export default {
 
     requestElement: RequestBuilder.fromElement,
 
+    pageReady() {
+        return controller.pageReady();
+    },
+
     start() {
         controller.start();
     },

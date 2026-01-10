@@ -11,7 +11,6 @@ export function buildJaxObject(modules) {
         AssetManager,
         Events,
         waitFor,
-        pageReady,
         visit,
         // Optional modules
         AjaxExtras,
@@ -31,6 +30,7 @@ export function buildJaxObject(modules) {
         request: AjaxFramework.requestElement,
         parseJSON: AjaxFramework.parseJSON,
         values: AjaxFramework.serializeAsJSON,
+        pageReady: AjaxFramework.pageReady,
 
         // Util
         Events,
@@ -40,7 +40,6 @@ export function buildJaxObject(modules) {
         off: Events.off,
         one: Events.one,
         waitFor,
-        pageReady,
         visit,
     };
 

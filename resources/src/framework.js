@@ -11,7 +11,7 @@ import AjaxFramework from "./core/namespace";
 import AjaxRequest from "./request/namespace";
 import { AssetManager } from "./request/asset-manager";
 import { Events } from "./util/events";
-import { waitFor, domReady } from "./util/wait";
+import { waitFor } from "./util/wait";
 import { buildJaxObject } from "./util/jax-builder";
 
 if (!window.jax) {
@@ -24,7 +24,6 @@ Object.assign(window.jax, buildJaxObject({
     AssetManager,
     Events,
     waitFor,
-    pageReady: domReady,
     visit: (url) => window.location.assign(url),
 }));
 

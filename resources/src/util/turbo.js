@@ -19,3 +19,7 @@ export function turboVisit(url, options) {
 export function getTurboController() {
     return _turboProvider?.controller ?? null;
 }
+
+export function turboPageReady() {
+    return _turboProvider?.pageReady() ?? null;
+}
