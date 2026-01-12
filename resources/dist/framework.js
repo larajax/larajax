@@ -1073,7 +1073,7 @@
     async handleUpdateOperations(data, responseCode, xhr) {
       const flashMessages = this.delegate.options.flash ? data.$env?.getFlash() : null;
       if (flashMessages) {
-        for (var flashMessage in flashMessages) {
+        for (const flashMessage of flashMessages) {
           this.invoke("handleFlashMessage", [flashMessage.text, flashMessage.level]);
         }
       }
