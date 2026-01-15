@@ -16,6 +16,12 @@ export interface ProgressBar {
     setValue(value: number): void;
 }
 
+// The singleton accessor (used via jax.progressBar and AjaxExtras.progressBar)
+export interface ProgressBarAccessor {
+    show(): void;
+    hide(): void;
+}
+
 // ============================================================================
 // Flash Message
 // ============================================================================
@@ -366,7 +372,7 @@ export interface AjaxFrameworkNamespace {
 
 export interface AjaxExtrasNamespace {
     flashMsg(options: FlashMessageOptions): number | void;
-    progressBar: ProgressBar;
+    progressBar: ProgressBarAccessor;
     attachLoader<T = DataResponse>(element: HTMLElement, handler: string, options?: RequestOptions<T>): void;
     start(): void;
     stop(): void;
@@ -415,9 +421,10 @@ declare function on(element: Element, event: string, handler: EventListener, opt
 declare function off(element: Element, event: string, handler?: EventListener, options?: EventListenerOptions): void;
 declare function one(element: Element, event: string, handler: EventListener, options?: AddEventListenerOptions): void;
 declare function waitFor(predicate: () => boolean, timeout?: number): Promise<void>;
+declare function domReady(): Promise<void>;
 declare function pageReady(): Promise<void>;
 
-declare var progressBar: ProgressBar;
+declare var progressBar: ProgressBarAccessor;
 
 export {
     ajax,
@@ -439,6 +446,7 @@ export {
     off,
     one,
     waitFor,
+    domReady,
     pageReady
 };
 
@@ -484,7 +492,7 @@ export interface JaxObject {
     // Extras
     AjaxExtras: AjaxExtrasNamespace;
     flashMsg: typeof flashMsg;
-    progressBar: ProgressBar;
+    progressBar: ProgressBarAccessor;
     attachLoader: AjaxExtrasNamespace['attachLoader'];
 
     // Observe
