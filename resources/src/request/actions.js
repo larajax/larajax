@@ -144,6 +144,7 @@ export class Actions
 
     cancel() {
         this.invokeFunc('cancelFunc');
+        this.delegate.notifyApplicationRequestCancel();
     }
 
     // Custom function, requests confirmation from the user

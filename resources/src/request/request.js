@@ -36,9 +36,12 @@ export class Request
     }
 
     start() {
+        this.promise = cancellablePromise();
+
         // Setup
         if (!this.applicationAllowsSetup()) {
-            return;
+            this.promise.resolve(null);
+            return this.promise;
         }
 
         this.initOtherElements();
@@ -47,16 +50,19 @@ export class Request
         // Prepare actions
         this.actions = new Actions(this, this.context, this.options);
         if (this.actions.invokeFunc('beforeSendFunc') === false) {
-            return;
+            this.promise.resolve(null);
+            return this.promise;
         }
 
         if (!this.validateClientSideForm() || !this.applicationAllowsRequest()) {
-            return;
+            this.promise.resolve(null);
+            return this.promise;
         }
 
         // Confirm before sending
         if (this.options.confirm && !this.actions.invoke('handleConfirmMessage', [this.options.confirm])) {
-            return;
+            this.promise.resolve(null);
+            return this.promise;
         }
 
         // Send request
@@ -91,7 +97,6 @@ export class Request
         // Prepare request
         const { url, headers, method } = Options.fetch(this.handler, this.options);
         this.request = new HttpRequest(this, url, { method, headers, data, trackAbort: true });
-        this.promise = cancellablePromise();
         this.isRedirect = this.options.redirect && this.options.redirect.length > 0;
 
         // Lifecycle events
@@ -212,6 +217,10 @@ export class Request
 
     notifyApplicationRequestComplete(data, responseCode, xhr) {
         return dispatch('ajax:request-complete', { target: this.triggerEl, detail: { context: this.context, data, responseCode, xhr } });
+    }
+
+    notifyApplicationRequestCancel() {
+        return dispatch('ajax:request-cancel', { target: this.triggerEl, detail: { context: this.context } });
     }
 
     notifyApplicationBeforeValidate(message, fields) {
