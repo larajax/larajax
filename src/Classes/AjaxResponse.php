@@ -563,6 +563,6 @@ class AjaxResponse implements Responsable
             return (string) $content;
         }
 
-        return is_string($content) ? $content : '';
+        return is_scalar($content) ? $content : '';
     }
 }
