@@ -466,7 +466,7 @@ class AjaxResponse implements Responsable
         }
 
         if ($exception instanceof \Illuminate\Validation\ValidationException) {
-            return $this->invalidFields($exception->errors());
+            return $this->error($exception->getMessage())->invalidFields($exception->errors());
         }
 
         if ($exception instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) {
