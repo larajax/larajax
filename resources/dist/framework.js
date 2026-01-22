@@ -770,10 +770,11 @@
         }
       );
     });
-    promise.cancel = () => {
+    promise.abort = () => {
       hasCanceled = true;
       cancelHandler();
     };
+    promise.cancel = promise.abort;
     promise.onCancel = (fn) => {
       cancelHandler = typeof fn === "function" ? fn : cancelHandler;
       return promise;
