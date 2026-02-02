@@ -473,7 +473,16 @@ class AjaxResponse implements Responsable
             return $this->error('Access Denied');
         }
 
-        return $this->error($exception->getMessage());
+        if ($exception instanceof \Illuminate\Database\QueryException) {
+            return $this->fatal($exception->getMessage());
+        }
+
+        if ($exception instanceof \Exception) {
+            return $this->error($exception->getMessage());
+        }
+
+        // Throwable but not Exception (i.e., Error)
+        return $this->fatal($exception->getMessage());
     }
 
     /**
