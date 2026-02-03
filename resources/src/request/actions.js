@@ -18,6 +18,7 @@ export class Actions
         this.context.error = decoratePromiseProxy(this.error, this);
         this.context.complete = decoratePromiseProxy(this.complete, this);
         this.context.cancel = this.cancel.bind(this);
+        this.context.handleErrorMessage = this.handleErrorMessage.bind(this);
     }
 
     // Options can override all public methods in this class
@@ -99,9 +100,9 @@ export class Actions
             await this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
         }
         // Standard error with standard response text
-        else {
+        else if (!errorMsg) {
             if (data.constructor === {}.constructor) {
-                if (!errorMsg && data.message) {
+                if (data.message) {
                     errorMsg = data.message;
                 }
                 else {
@@ -129,7 +130,7 @@ export class Actions
             return;
         }
 
-        this.invoke('handleErrorMessage', [errorMsg]);
+        this.invoke('handleErrorMessage', [errorMsg, data.$env?.getSeverity()]);
     }
 
     async complete(data, responseCode, xhr) {
@@ -185,7 +186,7 @@ export class Actions
     handleFlashMessage(message, type) {}
 
     // Custom function, display an error message to the user
-    handleErrorMessage(message) {
+    handleErrorMessage(message, severity) {
         const event = this.delegate.notifyApplicationErrorMessage(message);
         if (event.defaultPrevented) {
             return;

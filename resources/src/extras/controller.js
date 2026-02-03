@@ -48,12 +48,19 @@ export class Controller
         // Flash message
         this.flashMessageBind = (event) => {
             const { options } = event.detail.context;
+            const requestContext = event.detail.context;
             if (options.flash) {
-                options.handleErrorMessage = (message) => {
+                options.handleErrorMessage = (message, severity) => {
+                    // Fatal errors: call default handler (fires event, shows alert)
+                    if (severity === 'fatal') {
+                        return requestContext.handleErrorMessage(message, severity);
+                    }
+
+                    // Recoverable errors: show as flash message
                     if (
                         message &&
-                        shouldShowFlashMessage(options.flash, 'error') ||
-                        shouldShowFlashMessage(options.flash, 'validate')
+                        (shouldShowFlashMessage(options.flash, 'error') ||
+                         shouldShowFlashMessage(options.flash, 'validate'))
                     ) {
                         this.flashMessage.show({ message, type: 'error' });
                     }
@@ -172,8 +179,8 @@ export class Controller
 }
 
 function shouldShowFlashMessage(value, type) {
-    // Validation messages are not included by default
-    if (value === true && type !== 'validate') {
+    // Boolean true includes all types
+    if (value === true) {
         return true;
     }
 
@@ -181,16 +188,16 @@ function shouldShowFlashMessage(value, type) {
         return false;
     }
 
-    if (value === '*') {
-        return true;
+    const parts = value.split(',').map(p => p.trim());
+    const hasNegation = parts.some(p => p.startsWith('-'));
+    const explicitExclude = parts.includes('-' + type);
+    const explicitInclude = parts.includes(type);
+
+    // Any negation means "start from all, then exclude"
+    if (hasNegation) {
+        return !explicitExclude;
     }
 
-    let result = false;
-    value.split(',').forEach(function(validType) {
-        if (validType.trim() === type) {
-            result = true;
-        }
-    });
-
-    return result;
+    // Only positives: explicit include only
+    return explicitInclude;
 }
