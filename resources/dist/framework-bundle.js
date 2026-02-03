@@ -804,6 +804,7 @@
       this.context.error = decoratePromiseProxy(this.error, this);
       this.context.complete = decoratePromiseProxy(this.complete, this);
       this.context.cancel = this.cancel.bind(this);
+      this.context.handleErrorMessage = this.handleErrorMessage.bind(this);
     }
     // Options can override all public methods in this class
     invoke(method, args = []) {
@@ -860,9 +861,9 @@
       if (!data.$env?.isFatal()) {
         await this.invoke("handleUpdateOperations", [data, responseCode, xhr]);
         await this.invoke("handleUpdateResponse", [data, responseCode, xhr]);
-      } else {
+      } else if (!errorMsg) {
         if (data.constructor === {}.constructor) {
-          if (!errorMsg && data.message) {
+          if (data.message) {
             errorMsg = data.message;
           } else {
             errorMsg = "Something went wrong! Check the browser console.";
@@ -881,7 +882,7 @@
       if (this.invokeFunc("errorFunc", data) === false) {
         return;
       }
-      this.invoke("handleErrorMessage", [errorMsg]);
+      this.invoke("handleErrorMessage", [errorMsg, data.$env?.getSeverity()]);
     }
     async complete(data, responseCode, xhr) {
       this.delegate.notifyApplicationRequestComplete(data, responseCode, xhr);
@@ -929,7 +930,7 @@
     handleFlashMessage(message, type) {
     }
     // Custom function, display an error message to the user
-    handleErrorMessage(message) {
+    handleErrorMessage(message, severity) {
       const event = this.delegate.notifyApplicationErrorMessage(message);
       if (event.defaultPrevented) {
         return;
@@ -3316,9 +3317,13 @@
       };
       this.flashMessageBind = (event) => {
         const { options } = event.detail.context;
+        const requestContext = event.detail.context;
         if (options.flash) {
-          options.handleErrorMessage = (message) => {
-            if (message && shouldShowFlashMessage(options.flash, "error") || shouldShowFlashMessage(options.flash, "validate")) {
+          options.handleErrorMessage = (message, severity) => {
+            if (severity === "fatal") {
+              return requestContext.handleErrorMessage(message, severity);
+            }
+            if (message && (shouldShowFlashMessage(options.flash, "error") || shouldShowFlashMessage(options.flash, "validate"))) {
               this.flashMessage.show({ message, type: "error" });
             }
           };
@@ -3400,22 +3405,20 @@
     }
   };
   function shouldShowFlashMessage(value, type) {
-    if (value === true && type !== "validate") {
+    if (value === true) {
       return true;
     }
     if (typeof value !== "string") {
       return false;
     }
-    if (value === "*") {
-      return true;
+    const parts = value.split(",").map((p) => p.trim());
+    const hasNegation = parts.some((p) => p.startsWith("-"));
+    const explicitExclude = parts.includes("-" + type);
+    const explicitInclude = parts.includes(type);
+    if (hasNegation) {
+      return !explicitExclude;
     }
-    let result = false;
-    value.split(",").forEach(function(validType) {
-      if (validType.trim() === type) {
-        result = true;
-      }
-    });
-    return result;
+    return explicitInclude;
   }
 
   // src/extras/namespace.js
