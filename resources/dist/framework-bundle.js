@@ -1703,22 +1703,18 @@
     start() {
       this.promise = cancellablePromise();
       if (!this.applicationAllowsSetup()) {
-        this.promise.resolve(null);
         return this.promise;
       }
       this.initOtherElements();
       this.preprocessOptions();
       this.actions = new Actions(this, this.context, this.options);
       if (this.actions.invokeFunc("beforeSendFunc") === false) {
-        this.promise.resolve(null);
         return this.promise;
       }
       if (!this.validateClientSideForm() || !this.applicationAllowsRequest()) {
-        this.promise.resolve(null);
         return this.promise;
       }
       if (this.options.confirm && !this.actions.invoke("handleConfirmMessage", [this.options.confirm])) {
-        this.promise.resolve(null);
         return this.promise;
       }
       this.sendInternal();
@@ -1748,15 +1744,15 @@
         this.request.abort();
       }).then((data2) => {
         if (!this.isRedirect) {
-          this.notifyApplicationAjaxDone(data2, data2.$status, data2.$xhr);
-          this.notifyApplicationAjaxAlways(data2, data2.$status, data2.$xhr);
-          this.notifyApplicationSendComplete(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationAjaxDone(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationAjaxAlways(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationSendComplete(data2, data2?.$status, data2?.$xhr);
         }
       }).catch((data2) => {
         if (!this.isRedirect) {
-          this.notifyApplicationAjaxFail(data2, data2.$status, data2.$xhr);
-          this.notifyApplicationAjaxAlways(data2, data2.$status, data2.$xhr);
-          this.notifyApplicationSendComplete(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationAjaxFail(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationAjaxAlways(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationSendComplete(data2, data2?.$status, data2?.$xhr);
         }
       });
       this.request.send();

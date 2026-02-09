@@ -40,7 +40,6 @@ export class Request
 
         // Setup
         if (!this.applicationAllowsSetup()) {
-            this.promise.resolve(null);
             return this.promise;
         }
 
@@ -50,18 +49,15 @@ export class Request
         // Prepare actions
         this.actions = new Actions(this, this.context, this.options);
         if (this.actions.invokeFunc('beforeSendFunc') === false) {
-            this.promise.resolve(null);
             return this.promise;
         }
 
         if (!this.validateClientSideForm() || !this.applicationAllowsRequest()) {
-            this.promise.resolve(null);
             return this.promise;
         }
 
         // Confirm before sending
         if (this.options.confirm && !this.actions.invoke('handleConfirmMessage', [this.options.confirm])) {
-            this.promise.resolve(null);
             return this.promise;
         }
 
