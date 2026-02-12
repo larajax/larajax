@@ -1744,15 +1744,15 @@
         this.request.abort();
       }).then((data2) => {
         if (!this.isRedirect) {
-          this.notifyApplicationAjaxDone(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationAjaxAlways(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationSendComplete(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationAjaxDone(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationAjaxAlways(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationSendComplete(data2, data2.$status, data2.$xhr);
         }
       }).catch((data2) => {
         if (!this.isRedirect) {
-          this.notifyApplicationAjaxFail(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationAjaxAlways(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationSendComplete(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationAjaxFail(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationAjaxAlways(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationSendComplete(data2, data2.$status, data2.$xhr);
         }
       });
       this.request.send();
@@ -3372,7 +3372,7 @@
         this.validator = new Validator();
         Events.on(document, "ajax:before-validate", "[data-request-validate]", this.validatorValidate);
         Events.on(document, "ajax:promise", "[data-request-validate]", this.validatorSubmit);
-        this.flashMessage = new FlashMessage();
+        this.flashMessage = FlashMessage.instance ?? (FlashMessage.instance = new FlashMessage());
         addEventListener("render", this.flashMessageRender);
         addEventListener("ajax:setup", this.flashMessageBind);
         addEventListener("page:before-cache", this.hideAllFlashMessages);

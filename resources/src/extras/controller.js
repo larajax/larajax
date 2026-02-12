@@ -135,7 +135,7 @@ export class Controller
             Events.on(document, 'ajax:promise', '[data-request-validate]', this.validatorSubmit);
 
             // Flash message
-            this.flashMessage = new FlashMessage;
+            this.flashMessage = FlashMessage.instance ?? (FlashMessage.instance = new FlashMessage);
             addEventListener('render', this.flashMessageRender);
             addEventListener('ajax:setup', this.flashMessageBind);
             addEventListener('page:before-cache', this.hideAllFlashMessages);

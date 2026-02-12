@@ -1744,15 +1744,15 @@
         this.request.abort();
       }).then((data2) => {
         if (!this.isRedirect) {
-          this.notifyApplicationAjaxDone(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationAjaxAlways(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationSendComplete(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationAjaxDone(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationAjaxAlways(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationSendComplete(data2, data2.$status, data2.$xhr);
         }
       }).catch((data2) => {
         if (!this.isRedirect) {
-          this.notifyApplicationAjaxFail(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationAjaxAlways(data2, data2?.$status, data2?.$xhr);
-          this.notifyApplicationSendComplete(data2, data2?.$status, data2?.$xhr);
+          this.notifyApplicationAjaxFail(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationAjaxAlways(data2, data2.$status, data2.$xhr);
+          this.notifyApplicationSendComplete(data2, data2.$status, data2.$xhr);
         }
       });
       this.request.send();
