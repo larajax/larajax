@@ -151,11 +151,6 @@ export class Trigger
      * Handle the trigger event
      */
     handleEvent(event) {
-        // User already prevented this event, respect it
-        if (event && event.defaultPrevented) {
-            return;
-        }
-
         // Element removed from DOM, ignore
         if (!this.isConnected()) {
             return;

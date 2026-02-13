@@ -2579,9 +2579,6 @@
      * Handle the trigger event
      */
     handleEvent(event) {
-      if (event && event.defaultPrevented) {
-        return;
-      }
       if (!this.isConnected()) {
         return;
       }
