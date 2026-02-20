@@ -198,21 +198,25 @@ export class RequestBuilder
 
     assignRequestData() {
         const data = {};
-        if (this.options.data) {
-            Object.assign(data, this.options.data);
-        }
 
-        const attr = this.ogElement.getAttribute('data-request-data');
-        if (attr) {
-            Object.assign(data, JsonParser.paramToObj('data-request-data', attr));
-        }
-
-        elementParents(this.ogElement, '[data-request-data]').reverse().forEach(function(el) {
+        // Parent elements first (lowest priority, outermost first)
+        elementParents(this.ogElement, '[data-request-data]').forEach(function(el) {
             Object.assign(data, JsonParser.paramToObj(
                 'data-request-data',
                 el.getAttribute('data-request-data')
             ));
         });
+
+        // Element's own data-request-data (higher priority)
+        const attr = this.ogElement.getAttribute('data-request-data');
+        if (attr) {
+            Object.assign(data, JsonParser.paramToObj('data-request-data', attr));
+        }
+
+        // Programmatic options data (highest priority)
+        if (this.options.data) {
+            Object.assign(data, this.options.data);
+        }
 
         this.options.data = data;
     }
