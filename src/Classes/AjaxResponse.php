@@ -572,6 +572,10 @@ class AjaxResponse implements Responsable
             return (string) $content;
         }
 
-        return is_string($content) ? $content : '';
+        if (is_scalar($content)) {
+            return (string) $content;
+        }
+
+        return '<!-- Unknown Type: ' . gettype($content) . ' -->';
     }
 }
