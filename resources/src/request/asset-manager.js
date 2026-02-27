@@ -77,12 +77,15 @@ export class AssetManager
                         else if (value !== false && value != null) el.setAttribute(key, value);
                     }
 
-                    el.textContent = asset.inline;
-
-                    // For modules: onload fires after execution
+                    // For inline modules, use a sentinel callback since load event
+                    // does not fire reliably for inline <script type="module">
                     if (el.type === 'module') {
-                        el.addEventListener('load', () => resolve(el));
-                        el.addEventListener('error', () => reject(new Error('Inline module failed')));
+                        const id = '_lj' + (++inlineModuleId);
+                        window[id] = () => { delete window[id]; resolve(el); };
+                        el.textContent = asset.inline + `\nwindow['${id}']();`;
+                    }
+                    else {
+                        el.textContent = asset.inline;
                     }
 
                     document.head.appendChild(el);
@@ -139,6 +142,9 @@ export class AssetManager
         })));
     }
 }
+
+// Counter for unique inline module sentinel callbacks
+let inlineModuleId = 0;
 
 // Normalize asset entry: string -> { url }, object -> as-is
 function normalizeAsset(asset) {
