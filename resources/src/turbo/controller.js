@@ -37,6 +37,10 @@ export class Controller
             this.observeInlineScripts();
         };
 
+        this.moduleLoaded = () => {
+            this.decrementPendingAsset();
+        };
+
         this.clickCaptured = () => {
             removeEventListener('click', this.clickBubbled, false);
             addEventListener('click', this.clickBubbled, false);
@@ -62,6 +66,7 @@ export class Controller
         if (Controller.supported && !this.started) {
             addEventListener('click', this.clickCaptured, true);
             addEventListener('DOMContentLoaded', this.pageLoaded, false);
+            addEventListener('turbo:module-loaded', this.moduleLoaded, false);
             this.startHistory();
             this.scrollManager.start();
             this.started = true;
@@ -77,6 +82,7 @@ export class Controller
         if (this.started) {
             removeEventListener('click', this.clickCaptured, true);
             removeEventListener('DOMContentLoaded', this.pageLoaded, false);
+            removeEventListener('turbo:module-loaded', this.moduleLoaded, false);
             this.scrollManager.stop();
             this.stopHistory();
             this.started = false;

@@ -19,6 +19,8 @@ export class SnapshotRenderer extends Renderer
 
     render(callback) {
         if (this.shouldRender()) {
+            this.delegate.pageIsReady = false;
+            this.countNewBodyModuleScripts();
             this.mergeHead();
             this.renderView(() => {
                 this.replaceBody();
@@ -70,8 +72,7 @@ export class SnapshotRenderer extends Renderer
     }
 
     bindPendingAssetLoadedEventOnce(element) {
-        const isModule = element.getAttribute('type') === 'module';
-        if (!element.hasAttribute('src') && !isModule) {
+        if (!element.hasAttribute('src')) {
             return element;
         }
 
@@ -124,9 +125,17 @@ export class SnapshotRenderer extends Renderer
         for (const inertScriptElement of this.getNewBodyScriptElements()) {
             const activatedScriptElement = this.createScriptElement(inertScriptElement);
             if (activatedScriptElement.getAttribute('type') === 'module') {
-                this.bindPendingAssetLoadedEventOnce(activatedScriptElement);
+                activatedScriptElement.textContent += "\n" + "dispatchEvent(new CustomEvent('turbo:module-loaded'));";
             }
             replaceElementWithElement(inertScriptElement, activatedScriptElement);
+        }
+    }
+
+    countNewBodyModuleScripts() {
+        for (const element of this.getNewBodyScriptElements()) {
+            if (element.getAttribute('type') === 'module') {
+                this.delegate.incrementPendingAsset();
+            }
         }
     }
 
