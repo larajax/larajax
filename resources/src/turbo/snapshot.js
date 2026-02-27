@@ -9,18 +9,6 @@ export class Snapshot
         this.bodyElement = bodyElement;
     }
 
-    static wrap(value) {
-        if (value instanceof this) {
-            return value;
-        }
-        else if (typeof value == 'string') {
-            return this.fromHTMLString(value);
-        }
-        else {
-            return this.fromHTMLElement(value);
-        }
-    }
-
     static fromHTMLString(html) {
         const element = document.createElement('html');
         element.innerHTML = html;
@@ -34,17 +22,9 @@ export class Snapshot
         return new this(headDetails, bodyElement);
     }
 
-    clone() {
-        return new Snapshot(this.headDetails, this.bodyElement.cloneNode(true));
-    }
-
     getRootLocation() {
         const root = this.getSetting('root', '/');
         return new Location(root);
-    }
-
-    getCacheControlValue() {
-        return this.getSetting('cache-control');
     }
 
     getElementForAnchor(anchor) {
@@ -70,18 +50,6 @@ export class Snapshot
 
     findFirstAutofocusableElement() {
         return this.bodyElement.querySelector('[autofocus]');
-    }
-
-    hasAnchor(anchor) {
-        return this.getElementForAnchor(anchor) != null;
-    }
-
-    isPreviewable() {
-        return this.getCacheControlValue() != 'no-preview';
-    }
-
-    isCacheable() {
-        return this.getCacheControlValue() != 'no-cache';
     }
 
     isNativeError() {

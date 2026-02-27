@@ -2,8 +2,7 @@ import { BrowserAdapter } from "./browser-adapter";
 import { History } from "./history";
 import { Location } from "./location";
 import { ScrollManager } from "./scroll-manager";
-import { SnapshotCache } from "./snapshot-cache";
-import { dispatch, defer, uuid } from "../util";
+import { dispatch, uuid } from "../util";
 import { View } from "./view";
 import { Visit } from "./visit";
 
@@ -18,7 +17,6 @@ export class Controller
         this.scrollManager = new ScrollManager(this);
         this.useScroll = true;
         this.view = new View(this);
-        this.cache = new SnapshotCache(10);
         this.enabled = true;
         this.pendingAssets = 0;
         this.progressBarDelay = 500;
@@ -100,10 +98,6 @@ export class Controller
         });
     }
 
-    clearCache() {
-        this.cache = new SnapshotCache(10);
-    }
-
     visit(location, options = {}) {
         location = Location.wrap(location);
         const action = options.action || 'advance';
@@ -177,25 +171,6 @@ export class Controller
         }
         else {
             this.adapter.pageInvalidated();
-        }
-    }
-
-    // Snapshot cache
-    getCachedSnapshotForLocation(location) {
-        const snapshot = this.cache.get(location);
-        return snapshot ? snapshot.clone() : snapshot;
-    }
-
-    shouldCacheSnapshot() {
-        return this.view.getSnapshot().isCacheable();
-    }
-
-    cacheSnapshot() {
-        if (this.shouldCacheSnapshot()) {
-            this.notifyApplicationBeforeCachingSnapshot();
-            const snapshot = this.view.getSnapshot();
-            const location = this.lastRenderedLocation || Location.currentLocation;
-            defer(() => this.cache.put(location, snapshot.clone()));
         }
     }
 
@@ -305,10 +280,6 @@ export class Controller
 
     notifyApplicationAfterVisitingLocation(location) {
         return dispatch('page:visit', { detail: { url: location.absoluteURL }, cancelable: false });
-    }
-
-    notifyApplicationBeforeCachingSnapshot() {
-        return dispatch('page:before-cache', { cancelable: false });
     }
 
     notifyApplicationBeforeRender(newBody, options) {

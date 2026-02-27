@@ -97,9 +97,6 @@ export class FlashMessage
             border-radius: 50%;
             opacity: .5;
         }
-        html[data-turbo-preview] .jax-flash-message {
-            opacity: 0;
-        }
         @keyframes jax-flash-loader {
             0% { transform: rotate(0deg); }
             100%  { transform: rotate(360deg); }

@@ -21,17 +21,11 @@ export class BrowserAdapter
         visit.issueRequest();
         visit.changeHistory();
         visit.goToSamePageAnchor();
-        visit.loadCachedSnapshot();
     }
 
     visitRequestStarted(visit) {
         this.progressBar.setValue(0);
-        if (visit.hasCachedSnapshot() || visit.action != 'restore') {
-            this.showProgressBarAfterDelay();
-        }
-        else {
-            this.showProgressBar();
-        }
+        this.showProgressBarAfterDelay();
     }
 
     visitRequestProgressed(visit) {

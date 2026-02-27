@@ -21,10 +21,9 @@ export class View
         return Snapshot.fromHTMLElement(this.htmlElement);
     }
 
-    render({ snapshot, error, isPreview }, callback) {
-        this.markAsPreview(isPreview);
+    render({ snapshot, error }, callback) {
         if (snapshot) {
-            this.renderSnapshot(snapshot, isPreview, callback);
+            this.renderSnapshot(snapshot, callback);
         }
         else {
             this.renderError(error, callback);
@@ -32,17 +31,8 @@ export class View
     }
 
     // Private
-    markAsPreview(isPreview) {
-        if (isPreview) {
-            this.htmlElement.setAttribute('data-turbo-preview', '');
-        }
-        else {
-            this.htmlElement.removeAttribute('data-turbo-preview');
-        }
-    }
-
-    renderSnapshot(snapshot, isPreview, callback) {
-        SnapshotRenderer.render(this.delegate, callback, this.getSnapshot(), snapshot, isPreview || false);
+    renderSnapshot(snapshot, callback) {
+        SnapshotRenderer.render(this.delegate, callback, this.getSnapshot(), snapshot);
     }
 
     renderError(error, callback) {

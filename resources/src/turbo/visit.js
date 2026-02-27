@@ -27,7 +27,6 @@ export class Visit
         this.historyChanged = false;
         this.progress = 0;
         this.scrolled = false;
-        this.snapshotCached = action === 'swap';
         this.state = VisitState.initialized;
 
         // Scrolling
@@ -108,10 +107,6 @@ export class Visit
             options.headers['Accept'] = 'text/html, application/xhtml+xml';
             options.headers['X-PJAX'] = 1;
 
-            if (this.hasCachedSnapshot()) {
-                options.headers['X-PJAX-CACHED'] = 1;
-            }
-
             if (this.referrer) {
                 options.headers['X-PJAX-REFERRER'] = Location.wrap(this.referrer).absoluteURL;
             }
@@ -122,48 +117,12 @@ export class Visit
         }
     }
 
-    getCachedSnapshot() {
-        const snapshot = this.controller.getCachedSnapshotForLocation(this.location);
-        if (snapshot && (!this.location.anchor || snapshot.hasAnchor(this.location.anchor))) {
-            if (this.action == 'restore' || snapshot.isPreviewable()) {
-                return snapshot;
-            }
-        }
-    }
-
-    hasCachedSnapshot() {
-        return this.getCachedSnapshot() != null;
-    }
-
-    loadCachedSnapshot() {
-        const snapshot = this.getCachedSnapshot();
-        if (snapshot) {
-            const isPreview = this.shouldIssueRequest();
-
-            this.render(() => {
-                this.cacheSnapshot();
-                if (this.isSamePage) {
-                    this.performScroll();
-                    this.adapter.visitRendered(this);
-                }
-                else {
-                    this.controller.render({ snapshot, isPreview }, this.performScroll);
-                    this.adapter.visitRendered(this);
-                    if (!isPreview) {
-                        this.complete();
-                    }
-                }
-            });
-        }
-    }
-
     loadResponse() {
         const { request, response } = this;
         if (request && response) {
             this.render(() => {
                 const snapshot = Snapshot.fromHTMLString(response);
 
-                this.cacheSnapshot();
                 if (request.failed && !snapshot.isNativeError()) {
                     this.controller.render({ error: response }, this.performScroll);
                     this.adapter.visitRendered(this);
@@ -189,7 +148,6 @@ export class Visit
     goToSamePageAnchor() {
         if (this.isSamePage) {
             this.render(() => {
-                this.cacheSnapshot();
                 this.performScroll();
                 this.adapter.visitRendered(this);
             });
@@ -267,15 +225,7 @@ export class Visit
     }
 
     shouldIssueRequest() {
-        if (this.action == 'restore') {
-            return !this.hasCachedSnapshot();
-        }
-        else if (this.isSamePage) {
-            return false;
-        }
-        else {
-            return true;
-        }
+        return !this.isSamePage;
     }
 
     locationChangeIsSamePage() {
@@ -285,13 +235,6 @@ export class Visit
 
         const lastLocation = this.action == 'restore' && this.controller.lastRenderedLocation;
         return this.controller.locationIsSamePageAnchor(lastLocation || this.location);
-    }
-
-    cacheSnapshot() {
-        if (!this.snapshotCached) {
-            this.controller.cacheSnapshot();
-            this.snapshotCached = true;
-        }
     }
 
     render(callback) {

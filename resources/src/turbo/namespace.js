@@ -9,11 +9,12 @@ export default {
     controller,
 
     visit(location, options) {
-        controller.visit(location, options);
-    },
-
-    clearCache() {
-        controller.clearCache();
+        if (controller.isEnabled()) {
+            controller.visit(location, options);
+        }
+        else {
+            window.location.assign(location);
+        }
     },
 
     setProgressBarVisible(value) {

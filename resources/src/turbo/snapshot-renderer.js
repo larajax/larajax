@@ -3,7 +3,7 @@ import { array } from "../util";
 
 export class SnapshotRenderer extends Renderer
 {
-    constructor(delegate, currentSnapshot, newSnapshot, isPreview) {
+    constructor(delegate, currentSnapshot, newSnapshot) {
         super();
         this.delegate = delegate;
         this.currentSnapshot = currentSnapshot;
@@ -11,11 +11,10 @@ export class SnapshotRenderer extends Renderer
         this.newSnapshot = newSnapshot;
         this.newHeadDetails = newSnapshot.headDetails;
         this.newBody = newSnapshot.bodyElement;
-        this.isPreview = isPreview;
     }
 
-    static render(delegate, callback, currentSnapshot, newSnapshot, isPreview) {
-        return new this(delegate, currentSnapshot, newSnapshot, isPreview).render(callback);
+    static render(delegate, callback, currentSnapshot, newSnapshot) {
+        return new this(delegate, currentSnapshot, newSnapshot).render(callback);
     }
 
     render(callback) {
@@ -23,9 +22,7 @@ export class SnapshotRenderer extends Renderer
             this.mergeHead();
             this.renderView(() => {
                 this.replaceBody();
-                if (!this.isPreview) {
-                    this.focusFirstAutofocusableElement();
-                }
+                this.focusFirstAutofocusableElement();
                 callback();
             });
         }
@@ -73,7 +70,8 @@ export class SnapshotRenderer extends Renderer
     }
 
     bindPendingAssetLoadedEventOnce(element) {
-        if (!element.hasAttribute('src')) {
+        const isModule = element.getAttribute('type') === 'module';
+        if (!element.hasAttribute('src') && !isModule) {
             return element;
         }
 
@@ -125,6 +123,9 @@ export class SnapshotRenderer extends Renderer
     activateNewBodyScriptElements() {
         for (const inertScriptElement of this.getNewBodyScriptElements()) {
             const activatedScriptElement = this.createScriptElement(inertScriptElement);
+            if (activatedScriptElement.getAttribute('type') === 'module') {
+                this.bindPendingAssetLoadedEventOnce(activatedScriptElement);
+            }
             replaceElementWithElement(inertScriptElement, activatedScriptElement);
         }
     }

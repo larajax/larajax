@@ -60,10 +60,6 @@ export class Location
         return location && this.absoluteURL === location.absoluteURL;
     }
 
-    toCacheKey() {
-        return this.requestURL;
-    }
-
     toJSON() {
         return this.absoluteURL;
     }
