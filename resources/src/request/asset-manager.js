@@ -18,7 +18,7 @@ export class AssetManager
     }
 
     async loadCollection(collection = {}) {
-        const jsList  = (collection.js  ?? []).map(normalizeAsset).filter(asset => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+        const jsList  = (collection.js  ?? []).map(normalizeAsset).filter(asset => asset.inline || !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
         const cssList = (collection.css ?? []).map(normalizeAsset).filter(asset => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
         const imgList = (collection.img ?? []).map(normalizeAsset);
 
@@ -60,6 +60,41 @@ export class AssetManager
     // Sequential loading (safer for dependencies)
     loadJavaScript(list) {
         return list.reduce((p, asset) => {
+            // Inline script
+            if (asset.inline) {
+                return p.then(() => new Promise((resolve, reject) => {
+                    const el = document.createElement('script');
+                    const attributes = asset.attributes || {};
+
+                    if (attributes.type) {
+                        el.type = attributes.type;
+                    }
+
+                    // Apply custom attributes (skip 'type' as it's already handled)
+                    for (const [key, value] of Object.entries(attributes)) {
+                        if (key === 'type') continue;
+                        if (value === true) el.setAttribute(key, '');
+                        else if (value !== false && value != null) el.setAttribute(key, value);
+                    }
+
+                    el.textContent = asset.inline;
+
+                    // For modules: onload fires after execution
+                    if (el.type === 'module') {
+                        el.addEventListener('load', () => resolve(el));
+                        el.addEventListener('error', () => reject(new Error('Inline module failed')));
+                    }
+
+                    document.head.appendChild(el);
+
+                    // For non-module inline scripts, they execute synchronously
+                    if (el.type !== 'module') {
+                        resolve(el);
+                    }
+                }));
+            }
+
+            // External script
             const { url, attributes = {} } = asset;
             return p.then(() => new Promise((resolve, reject) => {
                 const el = document.createElement('script');

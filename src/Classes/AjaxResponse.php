@@ -313,6 +313,26 @@ class AjaxResponse implements Responsable
     }
 
     /**
+     * jsInline adds inline JavaScript code to execute with the output.
+     *
+     * Usage:
+     *   ajax()->jsInline('console.log("hello")')
+     *   ajax()->jsInline('import x from "./mod.js";', ['type' => 'module'])
+     */
+    public function jsInline(string $code, array $attributes = []): static
+    {
+        $this->ajaxData['content']['ops'][] = [
+            'op' => self::OP_LOAD_ASSETS,
+            'type' => 'js',
+            'assets' => [
+                ['inline' => $code, 'attributes' => $attributes]
+            ],
+        ];
+
+        return $this;
+    }
+
+    /**
      * Adds an asset file or files to load with the output.
      *
      * Supported types: js, css, img

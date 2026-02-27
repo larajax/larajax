@@ -86,6 +86,12 @@ export class Envelope
             }
 
             for (const asset of assets) {
+                // Inline scripts are always included (no dedup)
+                if (asset.inline) {
+                    out[type].push(asset);
+                    continue;
+                }
+
                 // Handle both string and { url, attributes } formats
                 const url = typeof asset === 'string' ? asset : asset.url;
                 if (!seen[type].has(url)) {
