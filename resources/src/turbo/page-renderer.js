@@ -1,20 +1,20 @@
 import { Renderer } from "./renderer";
 import { array } from "../util";
 
-export class SnapshotRenderer extends Renderer
+export class PageRenderer extends Renderer
 {
-    constructor(delegate, currentSnapshot, newSnapshot) {
+    constructor(delegate, currentPage, newPage) {
         super();
         this.delegate = delegate;
-        this.currentSnapshot = currentSnapshot;
-        this.currentHeadDetails = currentSnapshot.headDetails;
-        this.newSnapshot = newSnapshot;
-        this.newHeadDetails = newSnapshot.headDetails;
-        this.newBody = newSnapshot.bodyElement;
+        this.currentPage = currentPage;
+        this.currentHeadDetails = currentPage.headDetails;
+        this.newPage = newPage;
+        this.newHeadDetails = newPage.headDetails;
+        this.newBody = newPage.bodyElement;
     }
 
-    static render(delegate, callback, currentSnapshot, newSnapshot) {
-        return new this(delegate, currentSnapshot, newSnapshot).render(callback);
+    static render(delegate, callback, currentPage, newPage) {
+        return new this(delegate, currentPage, newPage).render(callback);
     }
 
     render(callback) {
@@ -48,7 +48,7 @@ export class SnapshotRenderer extends Renderer
     }
 
     shouldRender() {
-        return this.currentSnapshot.isEnabled() && this.newSnapshot.isVisitable() && this.trackedElementsAreIdentical();
+        return this.currentPage.isEnabled() && this.newPage.isVisitable() && this.trackedElementsAreIdentical();
     }
 
     trackedElementsAreIdentical() {
@@ -101,7 +101,7 @@ export class SnapshotRenderer extends Renderer
 
     relocateCurrentBodyPermanentElements() {
         return this.getCurrentBodyPermanentElements().reduce((placeholders, permanentElement) => {
-            const newElement = this.newSnapshot.getPermanentElementById(permanentElement.id);
+            const newElement = this.newPage.getPermanentElementById(permanentElement.id);
             if (newElement) {
                 const placeholder = createPlaceholderForPermanentElement(permanentElement);
                 replaceElementWithElement(permanentElement, placeholder.element);
@@ -144,7 +144,7 @@ export class SnapshotRenderer extends Renderer
     }
 
     focusFirstAutofocusableElement() {
-        const element = this.newSnapshot.findFirstAutofocusableElement();
+        const element = this.newPage.findFirstAutofocusableElement();
         if (elementIsFocusable(element)) {
             element.focus();
         }
@@ -167,7 +167,7 @@ export class SnapshotRenderer extends Renderer
     }
 
     getCurrentBodyPermanentElements() {
-        return this.currentSnapshot.getPermanentElementsPresentInSnapshot(this.newSnapshot);
+        return this.currentPage.getPermanentElementsPresentInPage(this.newPage);
     }
 
     getNewBodyScriptElements() {

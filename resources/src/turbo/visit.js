@@ -1,6 +1,6 @@
 import { HttpRequest } from "../util/http-request";
 import { Location } from "./location";
-import { Snapshot } from "./snapshot";
+import { Page } from "./page";
 import { uuid } from "../util";
 
 export var TimingMetric = {
@@ -121,15 +121,15 @@ export class Visit
         const { request, response } = this;
         if (request && response) {
             this.render(() => {
-                const snapshot = Snapshot.fromHTMLString(response);
+                const page = Page.fromHTMLString(response);
 
-                if (request.failed && !snapshot.isNativeError()) {
+                if (request.failed && !page.isNativeError()) {
                     this.controller.render({ error: response }, this.performScroll);
                     this.adapter.visitRendered(this);
                     this.fail();
                 }
                 else {
-                    this.controller.render({ snapshot }, this.performScroll);
+                    this.controller.render({ page }, this.performScroll);
                     this.adapter.visitRendered(this);
                     this.complete();
                 }

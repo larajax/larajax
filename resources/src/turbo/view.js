@@ -1,6 +1,6 @@
 import { ErrorRenderer } from "./error-renderer";
-import { Snapshot } from "./snapshot";
-import { SnapshotRenderer } from "./snapshot-renderer";
+import { Page } from "./page";
+import { PageRenderer } from "./page-renderer";
 
 export class View
 {
@@ -10,20 +10,20 @@ export class View
     }
 
     getRootLocation() {
-        return this.getSnapshot().getRootLocation();
+        return this.getPage().getRootLocation();
     }
 
     getElementForAnchor(anchor) {
-        return this.getSnapshot().getElementForAnchor(anchor);
+        return this.getPage().getElementForAnchor(anchor);
     }
 
-    getSnapshot() {
-        return Snapshot.fromHTMLElement(this.htmlElement);
+    getPage() {
+        return Page.fromHTMLElement(this.htmlElement);
     }
 
-    render({ snapshot, error }, callback) {
-        if (snapshot) {
-            this.renderSnapshot(snapshot, callback);
+    render({ page, error }, callback) {
+        if (page) {
+            this.renderPage(page, callback);
         }
         else {
             this.renderError(error, callback);
@@ -31,8 +31,8 @@ export class View
     }
 
     // Private
-    renderSnapshot(snapshot, callback) {
-        SnapshotRenderer.render(this.delegate, callback, this.getSnapshot(), snapshot);
+    renderPage(page, callback) {
+        PageRenderer.render(this.delegate, callback, this.getPage(), page);
     }
 
     renderError(error, callback) {

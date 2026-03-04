@@ -2,7 +2,7 @@ import { HeadDetails } from "./head-details";
 import { Location } from "./location";
 import { array } from "../util";
 
-export class Snapshot
+export class Page
 {
     constructor(headDetails, bodyElement) {
         this.headDetails = headDetails;
@@ -44,8 +44,8 @@ export class Snapshot
         return this.bodyElement.querySelector(`#${id}[data-turbo-permanent]`);
     }
 
-    getPermanentElementsPresentInSnapshot(snapshot) {
-        return this.getPermanentElements().filter(({ id }) => snapshot.getPermanentElementById(id));
+    getPermanentElementsPresentInPage(page) {
+        return this.getPermanentElements().filter(({ id }) => page.getPermanentElementById(id));
     }
 
     findFirstAutofocusableElement() {
