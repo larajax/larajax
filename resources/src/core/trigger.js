@@ -117,6 +117,7 @@ export class Trigger
         if (tag === 'button') return 'click';
         if (tag === 'select') return 'change';
         if (type === 'checkbox' || type === 'radio' || type === 'file') return 'change';
+        if (type === 'date' || type === 'datetime-local' || type === 'time' || type === 'month' || type === 'week' || type === 'color' || type === 'range') return 'change';
         if (tag === 'input' && (type === 'submit' || type === 'button')) return 'click';
         if (tag === 'input') return 'click';
 
