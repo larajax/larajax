@@ -244,6 +244,15 @@ export class Controller
         return this.view.getPage().isViewTransitionEnabled();
     }
 
+    markVisitDirection(action) {
+        const direction = { advance: 'forward', restore: 'back' }[action] || 'none';
+        document.documentElement.setAttribute('data-turbo-visit-direction', direction);
+    }
+
+    unmarkVisitDirection() {
+        document.documentElement.removeAttribute('data-turbo-visit-direction');
+    }
+
     // Inline script monitoring
 
     observeInlineScripts() {
@@ -323,6 +332,7 @@ export class Controller
         }
         this.currentVisit = this.createVisit(location, action, properties);
         this.currentVisit.scrolled = !this.useScroll;
+        this.markVisitDirection(action);
         this.currentVisit.start();
         this.notifyApplicationAfterVisitingLocation(location);
     }
@@ -336,6 +346,7 @@ export class Controller
     }
 
     visitCompleted(visit) {
+        this.unmarkVisitDirection();
         this.notifyApplicationAfterPageLoad(visit.getTimingMetrics());
 
         if (this.pendingAssets === 0) {
