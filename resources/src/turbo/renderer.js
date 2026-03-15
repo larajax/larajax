@@ -4,8 +4,17 @@ export class Renderer
 {
     renderView(callback) {
         const renderInterception = () => {
-            callback();
-            this.delegate.viewRendered(this.newBody);
+            const completeRender = () => {
+                callback();
+                this.delegate.viewRendered(this.newBody);
+            };
+
+            if (this.willPerformViewTransition()) {
+                document.startViewTransition(() => completeRender());
+            }
+            else {
+                completeRender();
+            }
         };
 
         const options = { resume: renderInterception };
@@ -13,6 +22,14 @@ export class Renderer
         if (immediateRender) {
             renderInterception();
         }
+    }
+
+    willPerformViewTransition() {
+        return (
+            typeof document.startViewTransition === 'function' &&
+            typeof this.delegate.viewTransitionEnabled === 'function' &&
+            this.delegate.viewTransitionEnabled()
+        );
     }
 
     invalidateView() {

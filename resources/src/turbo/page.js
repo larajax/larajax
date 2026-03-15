@@ -64,6 +64,10 @@ export class Page
         return this.isEnabled() && this.getSetting('visit-control') != 'reload';
     }
 
+    isViewTransitionEnabled() {
+        return this.getSetting('view-transition') === 'same-origin';
+    }
+
     getSetting(name, defaultValue) {
         const value = this.headDetails.getMetaValue(`turbo-${name}`);
         return value == null ? defaultValue : value;

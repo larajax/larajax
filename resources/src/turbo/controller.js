@@ -240,6 +240,10 @@ export class Controller
         this.notifyApplicationAfterRender();
     }
 
+    viewTransitionEnabled() {
+        return this.view.getPage().isViewTransitionEnabled();
+    }
+
     // Inline script monitoring
 
     observeInlineScripts() {
