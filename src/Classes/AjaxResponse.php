@@ -373,6 +373,8 @@ class AjaxResponse implements Responsable
      */
     protected function normalizeAssetPaths(string|array $paths, array $attributes = []): array
     {
+        $attributes = $this->normalizeAssetAttributes($attributes);
+
         // Single string path
         if (is_string($paths)) {
             return $attributes ? [['url' => $paths, 'attributes' => $attributes]] : [$paths];
@@ -383,7 +385,7 @@ class AjaxResponse implements Responsable
         foreach ($paths as $key => $value) {
             // Associative: path => attributes
             if (is_string($key)) {
-                $attrs = is_array($value) ? $value : [];
+                $attrs = is_array($value) ? $this->normalizeAssetAttributes($value) : [];
                 $assets[] = $attrs ? ['url' => $key, 'attributes' => $attrs] : $key;
             }
             // Sequential: just a path string
@@ -393,6 +395,25 @@ class AjaxResponse implements Responsable
         }
 
         return $assets;
+    }
+
+    /**
+     * Normalize sequential attribute arrays (['defer']) to associative (['defer' => true]).
+     */
+    protected function normalizeAssetAttributes(array $attributes): array
+    {
+        $normalized = [];
+
+        foreach ($attributes as $key => $value) {
+            if (is_int($key) && is_string($value)) {
+                $normalized[$value] = true;
+            }
+            else {
+                $normalized[$key] = $value;
+            }
+        }
+
+        return $normalized;
     }
 
     /**

@@ -395,7 +395,7 @@ export class Request
 
 function decorateResponse(response, statusCode, xhr) {
     if (!response || response.constructor !== {}.constructor || !response.__ajax) {
-        return response;
+        return response || {};
     }
 
     const
