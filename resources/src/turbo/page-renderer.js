@@ -1,31 +1,30 @@
 import { Renderer } from "./renderer";
 import { array } from "../util";
 
-export class SnapshotRenderer extends Renderer
+export class PageRenderer extends Renderer
 {
-    constructor(delegate, currentSnapshot, newSnapshot, isPreview) {
+    constructor(delegate, currentPage, newPage) {
         super();
         this.delegate = delegate;
-        this.currentSnapshot = currentSnapshot;
-        this.currentHeadDetails = currentSnapshot.headDetails;
-        this.newSnapshot = newSnapshot;
-        this.newHeadDetails = newSnapshot.headDetails;
-        this.newBody = newSnapshot.bodyElement;
-        this.isPreview = isPreview;
+        this.currentPage = currentPage;
+        this.currentHeadDetails = currentPage.headDetails;
+        this.newPage = newPage;
+        this.newHeadDetails = newPage.headDetails;
+        this.newBody = newPage.bodyElement;
     }
 
-    static render(delegate, callback, currentSnapshot, newSnapshot, isPreview) {
-        return new this(delegate, currentSnapshot, newSnapshot, isPreview).render(callback);
+    static render(delegate, callback, currentPage, newPage) {
+        return new this(delegate, currentPage, newPage).render(callback);
     }
 
     render(callback) {
         if (this.shouldRender()) {
+            this.delegate.pageIsReady = false;
+            this.countNewBodyModuleScripts();
             this.mergeHead();
             this.renderView(() => {
                 this.replaceBody();
-                if (!this.isPreview) {
-                    this.focusFirstAutofocusableElement();
-                }
+                this.focusFirstAutofocusableElement();
                 callback();
             });
         }
@@ -49,7 +48,7 @@ export class SnapshotRenderer extends Renderer
     }
 
     shouldRender() {
-        return this.currentSnapshot.isEnabled() && this.newSnapshot.isVisitable() && this.trackedElementsAreIdentical();
+        return this.currentPage.isEnabled() && this.newPage.isVisitable() && this.trackedElementsAreIdentical();
     }
 
     trackedElementsAreIdentical() {
@@ -102,7 +101,7 @@ export class SnapshotRenderer extends Renderer
 
     relocateCurrentBodyPermanentElements() {
         return this.getCurrentBodyPermanentElements().reduce((placeholders, permanentElement) => {
-            const newElement = this.newSnapshot.getPermanentElementById(permanentElement.id);
+            const newElement = this.newPage.getPermanentElementById(permanentElement.id);
             if (newElement) {
                 const placeholder = createPlaceholderForPermanentElement(permanentElement);
                 replaceElementWithElement(permanentElement, placeholder.element);
@@ -125,7 +124,18 @@ export class SnapshotRenderer extends Renderer
     activateNewBodyScriptElements() {
         for (const inertScriptElement of this.getNewBodyScriptElements()) {
             const activatedScriptElement = this.createScriptElement(inertScriptElement);
+            if (activatedScriptElement.getAttribute('type') === 'module') {
+                activatedScriptElement.textContent += "\n" + "dispatchEvent(new CustomEvent('turbo:module-loaded'));";
+            }
             replaceElementWithElement(inertScriptElement, activatedScriptElement);
+        }
+    }
+
+    countNewBodyModuleScripts() {
+        for (const element of this.getNewBodyScriptElements()) {
+            if (element.getAttribute('type') === 'module') {
+                this.delegate.incrementPendingAsset();
+            }
         }
     }
 
@@ -134,7 +144,7 @@ export class SnapshotRenderer extends Renderer
     }
 
     focusFirstAutofocusableElement() {
-        const element = this.newSnapshot.findFirstAutofocusableElement();
+        const element = this.newPage.findFirstAutofocusableElement();
         if (elementIsFocusable(element)) {
             element.focus();
         }
@@ -157,7 +167,7 @@ export class SnapshotRenderer extends Renderer
     }
 
     getCurrentBodyPermanentElements() {
-        return this.currentSnapshot.getPermanentElementsPresentInSnapshot(this.newSnapshot);
+        return this.currentPage.getPermanentElementsPresentInPage(this.newPage);
     }
 
     getNewBodyScriptElements() {

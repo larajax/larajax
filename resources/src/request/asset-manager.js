@@ -18,7 +18,7 @@ export class AssetManager
     }
 
     async loadCollection(collection = {}) {
-        const jsList  = (collection.js  ?? []).map(normalizeAsset).filter(asset => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+        const jsList  = (collection.js  ?? []).map(normalizeAsset).filter(asset => asset.inline || !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
         const cssList = (collection.css ?? []).map(normalizeAsset).filter(asset => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
         const imgList = (collection.img ?? []).map(normalizeAsset);
 
@@ -60,6 +60,44 @@ export class AssetManager
     // Sequential loading (safer for dependencies)
     loadJavaScript(list) {
         return list.reduce((p, asset) => {
+            // Inline script
+            if (asset.inline) {
+                return p.then(() => new Promise((resolve, reject) => {
+                    const el = document.createElement('script');
+                    const attributes = asset.attributes || {};
+
+                    if (attributes.type) {
+                        el.type = attributes.type;
+                    }
+
+                    // Apply custom attributes (skip 'type' as it's already handled)
+                    for (const [key, value] of Object.entries(attributes)) {
+                        if (key === 'type') continue;
+                        if (value === true) el.setAttribute(key, '');
+                        else if (value !== false && value != null) el.setAttribute(key, value);
+                    }
+
+                    // For inline modules, use a sentinel callback since load event
+                    // does not fire reliably for inline <script type="module">
+                    if (el.type === 'module') {
+                        const id = '_lj' + (++inlineModuleId);
+                        window[id] = () => { delete window[id]; resolve(el); };
+                        el.textContent = asset.inline + `\nwindow['${id}']();`;
+                    }
+                    else {
+                        el.textContent = asset.inline;
+                    }
+
+                    document.head.appendChild(el);
+
+                    // For non-module inline scripts, they execute synchronously
+                    if (el.type !== 'module') {
+                        resolve(el);
+                    }
+                }));
+            }
+
+            // External script
             const { url, attributes = {} } = asset;
             return p.then(() => new Promise((resolve, reject) => {
                 const el = document.createElement('script');
@@ -104,6 +142,9 @@ export class AssetManager
         })));
     }
 }
+
+// Counter for unique inline module sentinel callbacks
+let inlineModuleId = 0;
 
 // Normalize asset entry: string -> { url }, object -> as-is
 function normalizeAsset(asset) {

@@ -2,23 +2,11 @@ import { HeadDetails } from "./head-details";
 import { Location } from "./location";
 import { array } from "../util";
 
-export class Snapshot
+export class Page
 {
     constructor(headDetails, bodyElement) {
         this.headDetails = headDetails;
         this.bodyElement = bodyElement;
-    }
-
-    static wrap(value) {
-        if (value instanceof this) {
-            return value;
-        }
-        else if (typeof value == 'string') {
-            return this.fromHTMLString(value);
-        }
-        else {
-            return this.fromHTMLElement(value);
-        }
     }
 
     static fromHTMLString(html) {
@@ -34,17 +22,9 @@ export class Snapshot
         return new this(headDetails, bodyElement);
     }
 
-    clone() {
-        return new Snapshot(this.headDetails, this.bodyElement.cloneNode(true));
-    }
-
     getRootLocation() {
         const root = this.getSetting('root', '/');
         return new Location(root);
-    }
-
-    getCacheControlValue() {
-        return this.getSetting('cache-control');
     }
 
     getElementForAnchor(anchor) {
@@ -64,24 +44,12 @@ export class Snapshot
         return this.bodyElement.querySelector(`#${id}[data-turbo-permanent]`);
     }
 
-    getPermanentElementsPresentInSnapshot(snapshot) {
-        return this.getPermanentElements().filter(({ id }) => snapshot.getPermanentElementById(id));
+    getPermanentElementsPresentInPage(page) {
+        return this.getPermanentElements().filter(({ id }) => page.getPermanentElementById(id));
     }
 
     findFirstAutofocusableElement() {
         return this.bodyElement.querySelector('[autofocus]');
-    }
-
-    hasAnchor(anchor) {
-        return this.getElementForAnchor(anchor) != null;
-    }
-
-    isPreviewable() {
-        return this.getCacheControlValue() != 'no-preview';
-    }
-
-    isCacheable() {
-        return this.getCacheControlValue() != 'no-cache';
     }
 
     isNativeError() {
@@ -94,6 +62,10 @@ export class Snapshot
 
     isVisitable() {
         return this.isEnabled() && this.getSetting('visit-control') != 'reload';
+    }
+
+    isViewTransitionEnabled() {
+        return this.getSetting('view-transition') === 'same-origin';
     }
 
     getSetting(name, defaultValue) {

@@ -391,7 +391,6 @@ export interface AjaxObserveNamespace {
 export interface AjaxTurboNamespace {
     readonly supported: boolean;
     visit(location: string, options?: TurboVisitOptions): void;
-    clearCache(): void;
     setProgressBarVisible(value: boolean): void;
     setProgressBarDelay(delay: number): void;
     isEnabled(): boolean;
@@ -560,7 +559,6 @@ declare global {
         'page:click': PageClickEvent;
         'page:before-visit': PageBeforeVisitEvent;
         'page:visit': PageVisitEvent;
-        'page:before-cache': CustomEvent;
         'page:before-render': PageBeforeRenderEvent;
         'page:render': CustomEvent;
         'page:load': PageLoadEvent;

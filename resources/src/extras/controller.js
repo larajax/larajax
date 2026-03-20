@@ -127,7 +127,6 @@ export class Controller
             Events.on(document, 'ajax:promise', 'form, [data-attach-loading]', this.showAttachLoader);
             Events.on(document, 'ajax:fail', 'form, [data-attach-loading]', this.hideAttachLoader);
             Events.on(document, 'ajax:done', 'form, [data-attach-loading]', this.hideAttachLoader);
-            addEventListener('page:before-cache', this.hideAllAttachLoaders);
 
             // Validator
             this.validator = new Validator;
@@ -138,7 +137,6 @@ export class Controller
             this.flashMessage = FlashMessage.instance ?? (FlashMessage.instance = new FlashMessage);
             addEventListener('render', this.flashMessageRender);
             addEventListener('ajax:setup', this.flashMessageBind);
-            addEventListener('page:before-cache', this.hideAllFlashMessages);
 
             // Browser redirect
             Events.on(document, 'click', '[data-browser-redirect-back]', this.handleBrowserRedirect);
@@ -157,7 +155,6 @@ export class Controller
             Events.off(document, 'ajax:promise', 'form, [data-attach-loading]', this.showAttachLoader);
             Events.off(document, 'ajax:fail', 'form, [data-attach-loading]', this.hideAttachLoader);
             Events.off(document, 'ajax:done', 'form, [data-attach-loading]', this.hideAttachLoader);
-            removeEventListener('page:before-cache', this.hideAllAttachLoaders);
 
             // Validator
             this.validator = null;
@@ -168,7 +165,6 @@ export class Controller
             this.flashMessage = null;
             removeEventListener('render', this.flashMessageRender);
             removeEventListener('ajax:setup', this.flashMessageBind);
-            removeEventListener('page:before-cache', this.hideAllFlashMessages);
 
             // Browser redirect
             Events.off(document, 'click', '[data-browser-redirect-back]', this.handleBrowserRedirect);
