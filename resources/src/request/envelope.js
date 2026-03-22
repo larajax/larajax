@@ -66,7 +66,7 @@ export class Envelope
 
     getDomPatches() {
         return this.getOps('patchDom')
-            .map(({ selector, html = '', swap = 'innerHTML' }) => ({
+            .map(({ selector, html = '', swap = 'update' }) => ({
                 selector, html, swap
             }));
     }

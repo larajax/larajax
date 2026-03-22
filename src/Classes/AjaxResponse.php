@@ -140,19 +140,19 @@ class AjaxResponse implements Responsable
      *
      * The array format for `updates`:
      *
-     *     target => '#myElement', content => '<div></div>', swap: 'innerHTML'
+     *     target => '#myElement', content => '<div></div>', swap: 'update'
      *
      * Swap types that can be used for the `swap` array key:
      *
-     * - innerHTML: Sets the content of the target element.
-     * - outerHTML: Replaces the target element entirely.
+     * - update: Sets the content of the target element.
+     * - replace: Replaces the target element entirely.
      * - append: Inserts content at the end of the target element.
-     * - beforeend: Inserts content at the end of the target element (same as append).
-     * - afterend: Inserts content immediately after the target element.
-     * - beforebegin: Inserts content before the target element.
      * - prepend: Inserts content at the beginning of the target element.
-     * - afterbegin: Inserts content at the beginning of the target element (same as prepend).
-     * - replace: Completely replaces the target element with the content.
+     * - after: Inserts content immediately after the target element.
+     * - before: Inserts content before the target element.
+     *
+     * Legacy aliases: innerHTML (update), outerHTML (replace), beforeend (append),
+     * afterbegin (prepend), afterend (after), beforebegin (before).
      */
     public function update(array $updates): static
     {
@@ -169,7 +169,7 @@ class AjaxResponse implements Responsable
                 'op' => self::OP_PATCH_DOM,
                 'selector' => $update['target'],
                 'html' => $update['content'],
-                'swap' => $update['swap'] ?? 'innerHTML',
+                'swap' => $update['swap'] ?? 'update',
             ];
         }
 
@@ -561,7 +561,7 @@ class AjaxResponse implements Responsable
             '@' => 'append',
             '^' => 'prepend',
             '!' => 'replace',
-            '=' => 'innerHTML'
+            '=' => 'update'
         ];
 
         foreach ($data as $target => $content) {
@@ -576,7 +576,7 @@ class AjaxResponse implements Responsable
                     $updates[] = [
                         'target' => $target,
                         'content' => $content,
-                        'swap' => $modifiers[$selector] ?? 'innerHTML'
+                        'swap' => $modifiers[$selector] ?? 'update'
                     ];
                 }
             }

@@ -1,8 +1,8 @@
 export var DomUpdateMode = {
-    replaceWith: 'replace',
+    replace: 'replace',
     prepend: 'prepend',
     append: 'append',
-    update: 'innerHTML'
+    update: 'update'
 }
 
 export class DomPatcher
@@ -87,14 +87,12 @@ export class DomPatcher
                 runScriptsOnFragment(element, content);
                 break;
             case 'replace':
-                element.replaceWith(content);
-                runScriptsOnFragment(parentEl, content);
-                break;
             case 'outerHTML':
                 element.outerHTML = content;
                 runScriptsOnFragment(parentEl, content);
                 break;
             default:
+            case 'update':
             case 'innerHTML':
                 element.innerHTML = content;
                 runScriptsOnElement(element);
@@ -140,7 +138,7 @@ function getSelectorUpdateMode(selector, el) {
     // Look at selector prefix
     if (typeof selector === 'string') {
         if (selector.charAt(0) === '!') {
-            return DomUpdateMode.replaceWith;
+            return DomUpdateMode.replace;
         }
         if (selector.charAt(0) === '@') {
             return DomUpdateMode.append;
