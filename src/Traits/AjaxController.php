@@ -33,7 +33,7 @@ trait AjaxController
         $this->initAjaxRequest();
 
         if ($this->ajaxRequest->hasAjaxHandler()) {
-            return $this->runAjaxAction($action, array_values($parameters));
+            return $this->runAjaxAction($action, $parameters);
         }
     }
 
@@ -106,7 +106,7 @@ trait AjaxController
 
         $call = method_exists($this, 'makeCallForAjax')
             ? $this->makeCallForAjax($method, $parameters)
-            : $method(...$parameters);
+            : app()->call($method, $parameters);
 
         $response = ajax()::wrap($call);
 

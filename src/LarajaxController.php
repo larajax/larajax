@@ -19,7 +19,7 @@ class LarajaxController extends Controller implements AjaxControllerInterface
     public function callAction($action, $parameters)
     {
         try {
-            if ($result = $this->callAjaxAction($action, array_values($parameters))) {
+            if ($result = $this->callAjaxAction($action, $parameters)) {
                 return $result;
             }
         }
