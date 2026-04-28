@@ -8,6 +8,7 @@ use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Renderable;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Illuminate\Http\Response as HttpResponse;
 
 /**
  * AjaxResponse class returned from ajax() call
@@ -511,7 +512,19 @@ class AjaxResponse implements Responsable
         }
 
         if ($exception instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) {
-            return $this->error('Access Denied');
+            return $this->error('Access Denied', 403);
+        }
+
+        if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+            return $this->error($exception->getMessage(), 404);
+        }
+
+        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+            $status = $exception->getStatusCode();
+            return $this->error(
+                $exception->getMessage() ?: (HttpResponse::$statusTexts[$status] ?? 'Whoops, looks like something went wrong.'),
+                $status
+            );
         }
 
         if ($exception instanceof \Illuminate\Database\QueryException) {
