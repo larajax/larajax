@@ -7,8 +7,8 @@ use JsonSerializable;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Renderable;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Illuminate\Http\Response as HttpResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * AjaxResponse class returned from ajax() call
@@ -511,20 +511,16 @@ class AjaxResponse implements Responsable
             return $this->error($exception->getMessage())->invalidFields($exception->errors());
         }
 
-        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException) {
-            return $this->error('Access Denied', 403);
-        }
-
         if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
-            return $this->error($exception->getMessage(), 404);
+            return $this->error('Record not found', 404);
         }
 
         if ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
             $status = $exception->getStatusCode();
-            return $this->error(
-                $exception->getMessage() ?: (HttpResponse::$statusTexts[$status] ?? 'Whoops, looks like something went wrong.'),
-                $status
-            );
+            $message = $exception->getMessage() ?: (HttpResponse::$statusTexts[$status] ?? 'An error occurred');
+            return $status >= 500
+                ? $this->fatal($message, $status)
+                : $this->error($message, $status);
         }
 
         if ($exception instanceof \Illuminate\Database\QueryException) {
