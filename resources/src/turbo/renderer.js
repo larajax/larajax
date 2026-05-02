@@ -10,7 +10,10 @@ export class Renderer
             };
 
             if (this.willPerformViewTransition()) {
-                document.startViewTransition(() => completeRender());
+                const transition = document.startViewTransition(() => completeRender());
+                if (typeof this.delegate.setViewTransitionFinished === 'function') {
+                    this.delegate.setViewTransitionFinished(transition.finished);
+                }
             }
             else {
                 completeRender();

@@ -27,6 +27,7 @@ export class Controller
         this.currentVisit = null;
         this.historyVisit = null;
         this.pageIsReady = false;
+        this.viewTransitionFinished = null;
 
         // Event handlers
         this.pageLoaded = () => {
@@ -71,6 +72,11 @@ export class Controller
             this.scrollManager.start();
             this.started = true;
             this.enabled = this.documentIsEnabled();
+
+            if ('scrollRestoration' in history) {
+                this.previousScrollRestoration = history.scrollRestoration;
+                history.scrollRestoration = 'manual';
+            }
         }
     }
 
@@ -86,6 +92,10 @@ export class Controller
             this.scrollManager.stop();
             this.stopHistory();
             this.started = false;
+
+            if ('scrollRestoration' in history && this.previousScrollRestoration) {
+                history.scrollRestoration = this.previousScrollRestoration;
+            }
         }
     }
 
@@ -240,6 +250,10 @@ export class Controller
         this.notifyApplicationAfterRender();
     }
 
+    setViewTransitionFinished(promise) {
+        this.viewTransitionFinished = promise;
+    }
+
     viewTransitionEnabled() {
         return this.view.getPage().isViewTransitionEnabled();
     }
@@ -346,7 +360,18 @@ export class Controller
     }
 
     visitCompleted(visit) {
-        this.unmarkVisitDirection();
+        if (this.viewTransitionFinished) {
+            this.viewTransitionFinished.then(() => {
+                this.unmarkVisitDirection();
+            }).catch(() => {
+                this.unmarkVisitDirection();
+            });
+            this.viewTransitionFinished = null;
+        }
+        else {
+            this.unmarkVisitDirection();
+        }
+
         this.notifyApplicationAfterPageLoad(visit.getTimingMetrics());
 
         if (this.pendingAssets === 0) {
