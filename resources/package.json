@@ -1,6 +1,6 @@
 {
     "name": "larajax",
-    "version": "2.2.1",
+    "version": "2.2.2",
     "description": "A small AJAX framework for Laravel, built to bring simplicity back to Laravel development.",
     "license": "MIT",
     "author": "Responsiv Pty. Ltd. (trading as October CMS)",

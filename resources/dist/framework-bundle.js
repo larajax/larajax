@@ -301,7 +301,7 @@
       }));
     }
     getDomPatches() {
-      return this.getOps("patchDom").map(({ selector, html = "", swap = "innerHTML" }) => ({
+      return this.getOps("patchDom").map(({ selector, html = "", swap = "update" }) => ({
         selector,
         html,
         swap
@@ -318,6 +318,10 @@
           continue;
         }
         for (const asset of assets) {
+          if (asset.inline) {
+            out[type].push(asset);
+            continue;
+          }
           const url = typeof asset === "string" ? asset : asset.url;
           if (!seen[type].has(url)) {
             seen[type].add(url);
@@ -447,7 +451,7 @@
       return promise;
     }
     async loadCollection(collection = {}) {
-      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => asset.inline || !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
       const cssList = (collection.css ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
       const imgList = (collection.img ?? []).map(normalizeAsset);
       if (!jsList.length && !cssList.length && !imgList.length) {
@@ -481,6 +485,35 @@
     // Sequential loading (safer for dependencies)
     loadJavaScript(list) {
       return list.reduce((p, asset) => {
+        if (asset.inline) {
+          return p.then(() => new Promise((resolve, reject) => {
+            const el = document.createElement("script");
+            const attributes2 = asset.attributes || {};
+            if (attributes2.type) {
+              el.type = attributes2.type;
+            }
+            for (const [key, value] of Object.entries(attributes2)) {
+              if (key === "type") continue;
+              if (value === true) el.setAttribute(key, "");
+              else if (value !== false && value != null) el.setAttribute(key, value);
+            }
+            if (el.type === "module") {
+              const id = "_lj" + ++inlineModuleId;
+              window[id] = () => {
+                delete window[id];
+                resolve(el);
+              };
+              el.textContent = asset.inline + `
+window['${id}']();`;
+            } else {
+              el.textContent = asset.inline;
+            }
+            document.head.appendChild(el);
+            if (el.type !== "module") {
+              resolve(el);
+            }
+          }));
+        }
         const { url, attributes = {} } = asset;
         return p.then(() => new Promise((resolve, reject) => {
           const el = document.createElement("script");
@@ -515,6 +548,7 @@
       })));
     }
   };
+  var inlineModuleId = 0;
   function normalizeAsset(asset) {
     return typeof asset === "string" ? { url: asset } : asset;
   }
@@ -524,10 +558,10 @@
 
   // src/request/dom-patcher.js
   var DomUpdateMode = {
-    replaceWith: "replace",
+    replace: "replace",
     prepend: "prepend",
     append: "append",
-    update: "innerHTML"
+    update: "update"
   };
   var DomPatcher = class {
     constructor(envelope, partialMap, options = {}) {
@@ -598,14 +632,12 @@
           runScriptsOnFragment(element, content);
           break;
         case "replace":
-          element.replaceWith(content);
-          runScriptsOnFragment(parentEl, content);
-          break;
         case "outerHTML":
           element.outerHTML = content;
           runScriptsOnFragment(parentEl, content);
           break;
         default:
+        case "update":
         case "innerHTML":
           element.innerHTML = content;
           runScriptsOnElement(element);
@@ -637,7 +669,7 @@
   function getSelectorUpdateMode(selector, el) {
     if (typeof selector === "string") {
       if (selector.charAt(0) === "!") {
-        return DomUpdateMode.replaceWith;
+        return DomUpdateMode.replace;
       }
       if (selector.charAt(0) === "@") {
         return DomUpdateMode.append;
@@ -1961,7 +1993,7 @@
   };
   function decorateResponse(response, statusCode, xhr) {
     if (!response || response.constructor !== {}.constructor || !response.__ajax) {
-      return response;
+      return response || {};
     }
     const { __ajax, ...data } = response, envelope = new Envelope(response, statusCode), meta = {
       env: envelope,
@@ -2552,6 +2584,7 @@
       if (tag === "button") return "click";
       if (tag === "select") return "change";
       if (type === "checkbox" || type === "radio" || type === "file") return "change";
+      if (type === "date" || type === "datetime-local" || type === "time" || type === "month" || type === "week" || type === "color" || type === "range") return "change";
       if (tag === "input" && (type === "submit" || type === "button")) return "click";
       if (tag === "input") return "click";
       return "click";
@@ -3096,9 +3129,6 @@
             border-radius: 50%;
             opacity: .5;
         }
-        html[data-turbo-preview] .jax-flash-message {
-            opacity: 0;
-        }
         @keyframes jax-flash-loader {
             0% { transform: rotate(0deg); }
             100%  { transform: rotate(360deg); }
@@ -3365,14 +3395,12 @@
         Events.on(document, "ajax:promise", "form, [data-attach-loading]", this.showAttachLoader);
         Events.on(document, "ajax:fail", "form, [data-attach-loading]", this.hideAttachLoader);
         Events.on(document, "ajax:done", "form, [data-attach-loading]", this.hideAttachLoader);
-        addEventListener("page:before-cache", this.hideAllAttachLoaders);
         this.validator = new Validator();
         Events.on(document, "ajax:before-validate", "[data-request-validate]", this.validatorValidate);
         Events.on(document, "ajax:promise", "[data-request-validate]", this.validatorSubmit);
         this.flashMessage = FlashMessage.instance ?? (FlashMessage.instance = new FlashMessage());
         addEventListener("render", this.flashMessageRender);
         addEventListener("ajax:setup", this.flashMessageBind);
-        addEventListener("page:before-cache", this.hideAllFlashMessages);
         Events.on(document, "click", "[data-browser-redirect-back]", this.handleBrowserRedirect);
         this.started = true;
       }
@@ -3384,14 +3412,12 @@
         Events.off(document, "ajax:promise", "form, [data-attach-loading]", this.showAttachLoader);
         Events.off(document, "ajax:fail", "form, [data-attach-loading]", this.hideAttachLoader);
         Events.off(document, "ajax:done", "form, [data-attach-loading]", this.hideAttachLoader);
-        removeEventListener("page:before-cache", this.hideAllAttachLoaders);
         this.validator = null;
         Events.off(document, "ajax:before-validate", "[data-request-validate]", this.validatorValidate);
         Events.off(document, "ajax:promise", "[data-request-validate]", this.validatorSubmit);
         this.flashMessage = null;
         removeEventListener("render", this.flashMessageRender);
         removeEventListener("ajax:setup", this.flashMessageBind);
-        removeEventListener("page:before-cache", this.hideAllFlashMessages);
         Events.off(document, "click", "[data-browser-redirect-back]", this.handleBrowserRedirect);
         this.started = false;
       }
@@ -4399,15 +4425,10 @@
       visit.issueRequest();
       visit.changeHistory();
       visit.goToSamePageAnchor();
-      visit.loadCachedSnapshot();
     }
     visitRequestStarted(visit) {
       this.progressBar.setValue(0);
-      if (visit.hasCachedSnapshot() || visit.action != "restore") {
-        this.showProgressBarAfterDelay();
-      } else {
-        this.showProgressBar();
-      }
+      this.showProgressBarAfterDelay();
     }
     visitRequestProgressed(visit) {
       this.progressBar.setValue(visit.progress);
@@ -4507,9 +4528,6 @@
     }
     isEqualTo(location2) {
       return location2 && this.absoluteURL === location2.absoluteURL;
-    }
-    toCacheKey() {
-      return this.requestURL;
     }
     toJSON() {
       return this.absoluteURL;
@@ -4625,62 +4643,31 @@
     }
   };
 
-  // src/turbo/snapshot-cache.js
-  var SnapshotCache = class {
-    constructor(size) {
-      this.keys = [];
-      this.snapshots = {};
-      this.size = size;
-    }
-    has(location2) {
-      return location2.toCacheKey() in this.snapshots;
-    }
-    get(location2) {
-      if (this.has(location2)) {
-        const snapshot = this.read(location2);
-        this.touch(location2);
-        return snapshot;
-      }
-    }
-    put(location2, snapshot) {
-      this.write(location2, snapshot);
-      this.touch(location2);
-      return snapshot;
-    }
-    // Private
-    read(location2) {
-      return this.snapshots[location2.toCacheKey()];
-    }
-    write(location2, snapshot) {
-      this.snapshots[location2.toCacheKey()] = snapshot;
-    }
-    touch(location2) {
-      const key = location2.toCacheKey();
-      const index = this.keys.indexOf(key);
-      if (index > -1)
-        this.keys.splice(index, 1);
-      this.keys.unshift(key);
-      this.trim();
-    }
-    trim() {
-      for (const key of this.keys.splice(this.size)) {
-        delete this.snapshots[key];
-      }
-    }
-  };
-
   // src/turbo/renderer.js
   var Renderer = class {
     renderView(callback) {
       const renderInterception = () => {
-        callback();
-        this.delegate.viewRendered(this.newBody);
+        const completeRender = () => {
+          callback();
+          this.delegate.viewRendered(this.newBody);
+        };
+        if (this.willPerformViewTransition()) {
+          const transition = document.startViewTransition(() => completeRender());
+          if (typeof this.delegate.setViewTransitionFinished === "function") {
+            this.delegate.setViewTransitionFinished(transition.finished);
+          }
+        } else {
+          completeRender();
+        }
       };
       const options = { resume: renderInterception };
       const immediateRender = this.delegate.viewAllowsImmediateRender(this.newBody, options);
       if (immediateRender) {
         renderInterception();
       }
+    }
+    willPerformViewTransition() {
+      return typeof document.startViewTransition === "function" && typeof this.delegate.viewTransitionEnabled === "function" && this.delegate.viewTransitionEnabled();
     }
     invalidateView() {
       this.delegate.viewInvalidated();
@@ -4819,20 +4806,11 @@
     return tagName == "meta" && element.getAttribute("name") == name;
   }
 
-  // src/turbo/snapshot.js
-  var Snapshot = class _Snapshot {
+  // src/turbo/page.js
+  var Page = class {
     constructor(headDetails, bodyElement) {
       this.headDetails = headDetails;
       this.bodyElement = bodyElement;
-    }
-    static wrap(value) {
-      if (value instanceof this) {
-        return value;
-      } else if (typeof value == "string") {
-        return this.fromHTMLString(value);
-      } else {
-        return this.fromHTMLElement(value);
-      }
     }
     static fromHTMLString(html) {
       const element = document.createElement("html");
@@ -4845,15 +4823,9 @@
       const headDetails = HeadDetails.fromHeadElement(headElement);
       return new this(headDetails, bodyElement);
     }
-    clone() {
-      return new _Snapshot(this.headDetails, this.bodyElement.cloneNode(true));
-    }
     getRootLocation() {
       const root = this.getSetting("root", "/");
       return new Location(root);
-    }
-    getCacheControlValue() {
-      return this.getSetting("cache-control");
     }
     getElementForAnchor(anchor) {
       try {
@@ -4868,20 +4840,11 @@
     getPermanentElementById(id) {
       return this.bodyElement.querySelector(`#${id}[data-turbo-permanent]`);
     }
-    getPermanentElementsPresentInSnapshot(snapshot) {
-      return this.getPermanentElements().filter(({ id }) => snapshot.getPermanentElementById(id));
+    getPermanentElementsPresentInPage(page) {
+      return this.getPermanentElements().filter(({ id }) => page.getPermanentElementById(id));
     }
     findFirstAutofocusableElement() {
       return this.bodyElement.querySelector("[autofocus]");
-    }
-    hasAnchor(anchor) {
-      return this.getElementForAnchor(anchor) != null;
-    }
-    isPreviewable() {
-      return this.getCacheControlValue() != "no-preview";
-    }
-    isCacheable() {
-      return this.getCacheControlValue() != "no-cache";
     }
     isNativeError() {
       return this.getSetting("visit-control", false) != false;
@@ -4892,35 +4855,37 @@
     isVisitable() {
       return this.isEnabled() && this.getSetting("visit-control") != "reload";
     }
+    isViewTransitionEnabled() {
+      return this.getSetting("view-transition") === "same-origin";
+    }
     getSetting(name, defaultValue) {
       const value = this.headDetails.getMetaValue(`turbo-${name}`);
       return value == null ? defaultValue : value;
     }
   };
 
-  // src/turbo/snapshot-renderer.js
-  var SnapshotRenderer = class extends Renderer {
-    constructor(delegate, currentSnapshot, newSnapshot, isPreview) {
+  // src/turbo/page-renderer.js
+  var PageRenderer = class extends Renderer {
+    constructor(delegate, currentPage, newPage) {
       super();
       this.delegate = delegate;
-      this.currentSnapshot = currentSnapshot;
-      this.currentHeadDetails = currentSnapshot.headDetails;
-      this.newSnapshot = newSnapshot;
-      this.newHeadDetails = newSnapshot.headDetails;
-      this.newBody = newSnapshot.bodyElement;
-      this.isPreview = isPreview;
+      this.currentPage = currentPage;
+      this.currentHeadDetails = currentPage.headDetails;
+      this.newPage = newPage;
+      this.newHeadDetails = newPage.headDetails;
+      this.newBody = newPage.bodyElement;
     }
-    static render(delegate, callback, currentSnapshot, newSnapshot, isPreview) {
-      return new this(delegate, currentSnapshot, newSnapshot, isPreview).render(callback);
+    static render(delegate, callback, currentPage, newPage) {
+      return new this(delegate, currentPage, newPage).render(callback);
     }
     render(callback) {
       if (this.shouldRender()) {
+        this.delegate.pageIsReady = false;
+        this.countNewBodyModuleScripts();
         this.mergeHead();
         this.renderView(() => {
           this.replaceBody();
-          if (!this.isPreview) {
-            this.focusFirstAutofocusableElement();
-          }
+          this.focusFirstAutofocusableElement();
           callback();
         });
       } else {
@@ -4940,7 +4905,7 @@
       this.replacePlaceholderElementsWithClonedPermanentElements(placeholders);
     }
     shouldRender() {
-      return this.currentSnapshot.isEnabled() && this.newSnapshot.isVisitable() && this.trackedElementsAreIdentical();
+      return this.currentPage.isEnabled() && this.newPage.isVisitable() && this.trackedElementsAreIdentical();
     }
     trackedElementsAreIdentical() {
       return this.currentHeadDetails.getTrackedElementSignature() == this.newHeadDetails.getTrackedElementSignature();
@@ -4983,7 +4948,7 @@
     }
     relocateCurrentBodyPermanentElements() {
       return this.getCurrentBodyPermanentElements().reduce((placeholders, permanentElement) => {
-        const newElement = this.newSnapshot.getPermanentElementById(permanentElement.id);
+        const newElement = this.newPage.getPermanentElementById(permanentElement.id);
         if (newElement) {
           const placeholder = createPlaceholderForPermanentElement(permanentElement);
           replaceElementWithElement(permanentElement, placeholder.element);
@@ -5003,14 +4968,24 @@
     activateNewBodyScriptElements() {
       for (const inertScriptElement of this.getNewBodyScriptElements()) {
         const activatedScriptElement = this.createScriptElement(inertScriptElement);
+        if (activatedScriptElement.getAttribute("type") === "module") {
+          activatedScriptElement.textContent += "\ndispatchEvent(new CustomEvent('turbo:module-loaded'));";
+        }
         replaceElementWithElement(inertScriptElement, activatedScriptElement);
+      }
+    }
+    countNewBodyModuleScripts() {
+      for (const element of this.getNewBodyScriptElements()) {
+        if (element.getAttribute("type") === "module") {
+          this.delegate.incrementPendingAsset();
+        }
       }
     }
     assignNewBody() {
       replaceElementWithElement(document.body, this.newBody);
     }
     focusFirstAutofocusableElement() {
-      const element = this.newSnapshot.findFirstAutofocusableElement();
+      const element = this.newPage.findFirstAutofocusableElement();
       if (elementIsFocusable(element)) {
         element.focus();
       }
@@ -5028,7 +5003,7 @@
       return this.newHeadDetails.getProvisionalElements();
     }
     getCurrentBodyPermanentElements() {
-      return this.currentSnapshot.getPermanentElementsPresentInSnapshot(this.newSnapshot);
+      return this.currentPage.getPermanentElementsPresentInPage(this.newPage);
     }
     getNewBodyScriptElements() {
       return array(this.newBody.querySelectorAll("script"));
@@ -5057,32 +5032,24 @@
       this.delegate = delegate;
     }
     getRootLocation() {
-      return this.getSnapshot().getRootLocation();
+      return this.getPage().getRootLocation();
     }
     getElementForAnchor(anchor) {
-      return this.getSnapshot().getElementForAnchor(anchor);
+      return this.getPage().getElementForAnchor(anchor);
     }
-    getSnapshot() {
-      return Snapshot.fromHTMLElement(this.htmlElement);
+    getPage() {
+      return Page.fromHTMLElement(this.htmlElement);
     }
-    render({ snapshot, error, isPreview }, callback) {
-      this.markAsPreview(isPreview);
-      if (snapshot) {
-        this.renderSnapshot(snapshot, isPreview, callback);
+    render({ page, error }, callback) {
+      if (page) {
+        this.renderPage(page, callback);
       } else {
         this.renderError(error, callback);
       }
     }
     // Private
-    markAsPreview(isPreview) {
-      if (isPreview) {
-        this.htmlElement.setAttribute("data-turbo-preview", "");
-      } else {
-        this.htmlElement.removeAttribute("data-turbo-preview");
-      }
-    }
-    renderSnapshot(snapshot, isPreview, callback) {
-      SnapshotRenderer.render(this.delegate, callback, this.getSnapshot(), snapshot, isPreview || false);
+    renderPage(page, callback) {
+      PageRenderer.render(this.delegate, callback, this.getPage(), page);
     }
     renderError(error, callback) {
       ErrorRenderer.render(this.delegate, callback, error || "");
@@ -5111,7 +5078,6 @@
       this.historyChanged = false;
       this.progress = 0;
       this.scrolled = false;
-      this.snapshotCached = action === "swap";
       this.state = VisitState.initialized;
       this.performScroll = () => {
         if (!this.scrolled) {
@@ -5179,9 +5145,6 @@
         };
         options.headers["Accept"] = "text/html, application/xhtml+xml";
         options.headers["X-PJAX"] = 1;
-        if (this.hasCachedSnapshot()) {
-          options.headers["X-PJAX-CACHED"] = 1;
-        }
         if (this.referrer) {
           options.headers["X-PJAX-REFERRER"] = Location.wrap(this.referrer).absoluteURL;
         }
@@ -5190,48 +5153,17 @@
         this.request.send();
       }
     }
-    getCachedSnapshot() {
-      const snapshot = this.controller.getCachedSnapshotForLocation(this.location);
-      if (snapshot && (!this.location.anchor || snapshot.hasAnchor(this.location.anchor))) {
-        if (this.action == "restore" || snapshot.isPreviewable()) {
-          return snapshot;
-        }
-      }
-    }
-    hasCachedSnapshot() {
-      return this.getCachedSnapshot() != null;
-    }
-    loadCachedSnapshot() {
-      const snapshot = this.getCachedSnapshot();
-      if (snapshot) {
-        const isPreview = this.shouldIssueRequest();
-        this.render(() => {
-          this.cacheSnapshot();
-          if (this.isSamePage) {
-            this.performScroll();
-            this.adapter.visitRendered(this);
-          } else {
-            this.controller.render({ snapshot, isPreview }, this.performScroll);
-            this.adapter.visitRendered(this);
-            if (!isPreview) {
-              this.complete();
-            }
-          }
-        });
-      }
-    }
     loadResponse() {
       const { request, response } = this;
       if (request && response) {
         this.render(() => {
-          const snapshot = Snapshot.fromHTMLString(response);
-          this.cacheSnapshot();
-          if (request.failed && !snapshot.isNativeError()) {
+          const page = Page.fromHTMLString(response);
+          if (request.failed && !page.isNativeError()) {
             this.controller.render({ error: response }, this.performScroll);
             this.adapter.visitRendered(this);
             this.fail();
           } else {
-            this.controller.render({ snapshot }, this.performScroll);
+            this.controller.render({ page }, this.performScroll);
             this.adapter.visitRendered(this);
             this.complete();
           }
@@ -5248,7 +5180,6 @@
     goToSamePageAnchor() {
       if (this.isSamePage) {
         this.render(() => {
-          this.cacheSnapshot();
           this.performScroll();
           this.adapter.visitRendered(this);
         });
@@ -5313,13 +5244,7 @@
       }
     }
     shouldIssueRequest() {
-      if (this.action == "restore") {
-        return !this.hasCachedSnapshot();
-      } else if (this.isSamePage) {
-        return false;
-      } else {
-        return true;
-      }
+      return !this.isSamePage;
     }
     locationChangeIsSamePage() {
       if (this.action == "swap") {
@@ -5327,12 +5252,6 @@
       }
       const lastLocation = this.action == "restore" && this.controller.lastRenderedLocation;
       return this.controller.locationIsSamePageAnchor(lastLocation || this.location);
-    }
-    cacheSnapshot() {
-      if (!this.snapshotCached) {
-        this.controller.cacheSnapshot();
-        this.snapshotCached = true;
-      }
     }
     render(callback) {
       this.cancelRender();
@@ -5360,7 +5279,6 @@
       this.scrollManager = new ScrollManager(this);
       this.useScroll = true;
       this.view = new View(this);
-      this.cache = new SnapshotCache(10);
       this.enabled = true;
       this.pendingAssets = 0;
       this.progressBarDelay = 500;
@@ -5371,12 +5289,16 @@
       this.currentVisit = null;
       this.historyVisit = null;
       this.pageIsReady = false;
+      this.viewTransitionFinished = null;
       this.pageLoaded = () => {
         this.pageIsReady = true;
         this.lastRenderedLocation = this.location;
         this.notifyApplicationAfterPageLoad();
         this.notifyApplicationAfterPageAndScriptsLoad();
         this.observeInlineScripts();
+      };
+      this.moduleLoaded = () => {
+        this.decrementPendingAsset();
       };
       this.clickCaptured = () => {
         removeEventListener("click", this.clickBubbled, false);
@@ -5401,10 +5323,15 @@
       if (_Controller.supported && !this.started) {
         addEventListener("click", this.clickCaptured, true);
         addEventListener("DOMContentLoaded", this.pageLoaded, false);
+        addEventListener("turbo:module-loaded", this.moduleLoaded, false);
         this.startHistory();
         this.scrollManager.start();
         this.started = true;
         this.enabled = this.documentIsEnabled();
+        if ("scrollRestoration" in history) {
+          this.previousScrollRestoration = history.scrollRestoration;
+          history.scrollRestoration = "manual";
+        }
       }
     }
     disable() {
@@ -5414,9 +5341,13 @@
       if (this.started) {
         removeEventListener("click", this.clickCaptured, true);
         removeEventListener("DOMContentLoaded", this.pageLoaded, false);
+        removeEventListener("turbo:module-loaded", this.moduleLoaded, false);
         this.scrollManager.stop();
         this.stopHistory();
         this.started = false;
+        if ("scrollRestoration" in history && this.previousScrollRestoration) {
+          history.scrollRestoration = this.previousScrollRestoration;
+        }
       }
     }
     isEnabled() {
@@ -5430,9 +5361,6 @@
           addEventListener("render", () => resolve(), { once: true });
         }
       });
-    }
-    clearCache() {
-      this.cache = new SnapshotCache(10);
     }
     visit(location2, options = {}) {
       location2 = Location.wrap(location2);
@@ -5497,22 +5425,6 @@
         this.adapter.pageInvalidated();
       }
     }
-    // Snapshot cache
-    getCachedSnapshotForLocation(location2) {
-      const snapshot = this.cache.get(location2);
-      return snapshot ? snapshot.clone() : snapshot;
-    }
-    shouldCacheSnapshot() {
-      return this.view.getSnapshot().isCacheable();
-    }
-    cacheSnapshot() {
-      if (this.shouldCacheSnapshot()) {
-        this.notifyApplicationBeforeCachingSnapshot();
-        const snapshot = this.view.getSnapshot();
-        const location2 = this.lastRenderedLocation || Location.currentLocation;
-        defer(() => this.cache.put(location2, snapshot.clone()));
-      }
-    }
     // Scrolling
     scrollToAnchor(anchor) {
       const element = this.view.getElementForAnchor(anchor);
@@ -5562,6 +5474,19 @@
       this.lastRenderedLocation = this.currentVisit.location;
       this.notifyApplicationAfterRender();
     }
+    setViewTransitionFinished(promise) {
+      this.viewTransitionFinished = promise;
+    }
+    viewTransitionEnabled() {
+      return this.view.getPage().isViewTransitionEnabled();
+    }
+    markVisitDirection(action) {
+      const direction = { advance: "forward", restore: "back" }[action] || "none";
+      document.documentElement.setAttribute("data-turbo-visit-direction", direction);
+    }
+    unmarkVisitDirection() {
+      document.documentElement.removeAttribute("data-turbo-visit-direction");
+    }
     // Inline script monitoring
     observeInlineScripts() {
       document.documentElement.querySelectorAll("script[data-turbo-eval-once]").forEach((el) => this.applicationHasSeenInlineScript(el));
@@ -5599,9 +5524,6 @@
     notifyApplicationAfterVisitingLocation(location2) {
       return dispatch("page:visit", { detail: { url: location2.absoluteURL }, cancelable: false });
     }
-    notifyApplicationBeforeCachingSnapshot() {
-      return dispatch("page:before-cache", { cancelable: false });
-    }
     notifyApplicationBeforeRender(newBody, options) {
       return dispatch("page:before-render", { detail: { newBody, ...options } });
     }
@@ -5627,6 +5549,7 @@
       }
       this.currentVisit = this.createVisit(location2, action, properties);
       this.currentVisit.scrolled = !this.useScroll;
+      this.markVisitDirection(action);
       this.currentVisit.start();
       this.notifyApplicationAfterVisitingLocation(location2);
     }
@@ -5638,6 +5561,16 @@
       return visit;
     }
     visitCompleted(visit) {
+      if (this.viewTransitionFinished) {
+        this.viewTransitionFinished.then(() => {
+          this.unmarkVisitDirection();
+        }).catch(() => {
+          this.unmarkVisitDirection();
+        });
+        this.viewTransitionFinished = null;
+      } else {
+        this.unmarkVisitDirection();
+      }
       this.notifyApplicationAfterPageLoad(visit.getTimingMetrics());
       if (this.pendingAssets === 0) {
         this.pageIsReady = true;
@@ -5723,10 +5656,11 @@
     },
     controller: controller3,
     visit(location2, options) {
-      controller3.visit(location2, options);
-    },
-    clearCache() {
-      controller3.clearCache();
+      if (controller3.isEnabled()) {
+        controller3.visit(location2, options);
+      } else {
+        window.location.assign(location2);
+      }
     },
     setProgressBarVisible(value) {
       controller3.setProgressBarVisible(value);
@@ -5818,14 +5752,15 @@
         Events.off(this.element, eventName, this.proxy(targetOrHandler), handlerOrOptions);
       }
       const compareArrays = (a, b) => {
-        if (a.length === b.length) {
-          for (var i = 0; i < a.length; i++) {
-            if (a[i] === b[i]) {
-              return true;
-            }
+        if (a.length !== b.length) {
+          return false;
+        }
+        for (var i = 0; i < a.length; i++) {
+          if (a[i] !== b[i]) {
+            return false;
           }
         }
-        return false;
+        return true;
       };
       for (const key in this.proxiedEvents) {
         if (compareArrays(arguments, this.proxiedEvents[key])) {

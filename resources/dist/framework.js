@@ -301,7 +301,7 @@
       }));
     }
     getDomPatches() {
-      return this.getOps("patchDom").map(({ selector, html = "", swap = "innerHTML" }) => ({
+      return this.getOps("patchDom").map(({ selector, html = "", swap = "update" }) => ({
         selector,
         html,
         swap
@@ -318,6 +318,10 @@
           continue;
         }
         for (const asset of assets) {
+          if (asset.inline) {
+            out[type].push(asset);
+            continue;
+          }
           const url = typeof asset === "string" ? asset : asset.url;
           if (!seen[type].has(url)) {
             seen[type].add(url);
@@ -447,7 +451,7 @@
       return promise;
     }
     async loadCollection(collection = {}) {
-      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
+      const jsList = (collection.js ?? []).map(normalizeAsset).filter((asset) => asset.inline || !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
       const cssList = (collection.css ?? []).map(normalizeAsset).filter((asset) => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
       const imgList = (collection.img ?? []).map(normalizeAsset);
       if (!jsList.length && !cssList.length && !imgList.length) {
@@ -481,6 +485,35 @@
     // Sequential loading (safer for dependencies)
     loadJavaScript(list) {
       return list.reduce((p, asset) => {
+        if (asset.inline) {
+          return p.then(() => new Promise((resolve, reject) => {
+            const el = document.createElement("script");
+            const attributes2 = asset.attributes || {};
+            if (attributes2.type) {
+              el.type = attributes2.type;
+            }
+            for (const [key, value] of Object.entries(attributes2)) {
+              if (key === "type") continue;
+              if (value === true) el.setAttribute(key, "");
+              else if (value !== false && value != null) el.setAttribute(key, value);
+            }
+            if (el.type === "module") {
+              const id = "_lj" + ++inlineModuleId;
+              window[id] = () => {
+                delete window[id];
+                resolve(el);
+              };
+              el.textContent = asset.inline + `
+window['${id}']();`;
+            } else {
+              el.textContent = asset.inline;
+            }
+            document.head.appendChild(el);
+            if (el.type !== "module") {
+              resolve(el);
+            }
+          }));
+        }
         const { url, attributes = {} } = asset;
         return p.then(() => new Promise((resolve, reject) => {
           const el = document.createElement("script");
@@ -515,6 +548,7 @@
       })));
     }
   };
+  var inlineModuleId = 0;
   function normalizeAsset(asset) {
     return typeof asset === "string" ? { url: asset } : asset;
   }
@@ -524,10 +558,10 @@
 
   // src/request/dom-patcher.js
   var DomUpdateMode = {
-    replaceWith: "replace",
+    replace: "replace",
     prepend: "prepend",
     append: "append",
-    update: "innerHTML"
+    update: "update"
   };
   var DomPatcher = class {
     constructor(envelope, partialMap, options = {}) {
@@ -598,14 +632,12 @@
           runScriptsOnFragment(element, content);
           break;
         case "replace":
-          element.replaceWith(content);
-          runScriptsOnFragment(parentEl, content);
-          break;
         case "outerHTML":
           element.outerHTML = content;
           runScriptsOnFragment(parentEl, content);
           break;
         default:
+        case "update":
         case "innerHTML":
           element.innerHTML = content;
           runScriptsOnElement(element);
@@ -637,7 +669,7 @@
   function getSelectorUpdateMode(selector, el) {
     if (typeof selector === "string") {
       if (selector.charAt(0) === "!") {
-        return DomUpdateMode.replaceWith;
+        return DomUpdateMode.replace;
       }
       if (selector.charAt(0) === "@") {
         return DomUpdateMode.append;
@@ -1961,7 +1993,7 @@
   };
   function decorateResponse(response, statusCode, xhr) {
     if (!response || response.constructor !== {}.constructor || !response.__ajax) {
-      return response;
+      return response || {};
     }
     const { __ajax, ...data } = response, envelope = new Envelope(response, statusCode), meta = {
       env: envelope,
@@ -2552,6 +2584,7 @@
       if (tag === "button") return "click";
       if (tag === "select") return "change";
       if (type === "checkbox" || type === "radio" || type === "file") return "change";
+      if (type === "date" || type === "datetime-local" || type === "time" || type === "month" || type === "week" || type === "color" || type === "range") return "change";
       if (tag === "input" && (type === "submit" || type === "button")) return "click";
       if (tag === "input") return "click";
       return "click";
