@@ -1,0 +1,34 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'resources/src/**'
+      - 'resources/tests/**'
+      - 'resources/package.json'
+      - 'resources/bunfig.toml'
+  pull_request:
+    paths:
+      - 'resources/src/**'
+      - 'resources/tests/**'
+      - 'resources/package.json'
+      - 'resources/bunfig.toml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: resources
+        run: bun install
+
+      - name: Run tests
+        working-directory: resources
+        run: bun test

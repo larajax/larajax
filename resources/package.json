@@ -10,9 +10,11 @@
     "types": "./types/index.d.ts",
     "sideEffects": false,
     "devDependencies": {
+        "@happy-dom/global-registrator": "^16.0.0",
         "esbuild": "^0.24.0"
     },
     "scripts": {
+        "test": "bun test",
         "dev:framework": "node esbuild.config.js --entry=framework --mode=development",
         "dev:bundle": "node esbuild.config.js --entry=framework-bundle --mode=development",
         "build:framework": "node esbuild.config.js --entry=framework --mode=production",
