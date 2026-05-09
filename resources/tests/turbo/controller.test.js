@@ -73,6 +73,18 @@ describe('Controller', () => {
             expect(document.documentElement.getAttribute('data-turbo-visit-direction')).toBe('none');
         });
 
+        it('uses explicit direction parameter when provided', () => {
+            controller.markVisitDirection('restore', 'forward');
+            expect(document.documentElement.getAttribute('data-turbo-visit-direction')).toBe('forward');
+        });
+
+        it('falls back to action-based direction when no explicit direction', () => {
+            controller.markVisitDirection('advance');
+            expect(document.documentElement.getAttribute('data-turbo-visit-direction')).toBe('forward');
+            controller.markVisitDirection('restore');
+            expect(document.documentElement.getAttribute('data-turbo-visit-direction')).toBe('back');
+        });
+
         it('unmarkVisitDirection removes the attribute', () => {
             controller.markVisitDirection('advance');
             expect(document.documentElement.hasAttribute('data-turbo-visit-direction')).toBe(true);

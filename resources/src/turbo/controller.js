@@ -178,12 +178,12 @@ export class Controller
     }
 
     // History delegate
-    historyPoppedToLocationWithRestorationIdentifier(location, restorationIdentifier) {
+    historyPoppedToLocationWithRestorationIdentifier(location, restorationIdentifier, direction) {
         if (this.enabled) {
             this.location = location;
             this.restorationIdentifier = restorationIdentifier;
             const restorationData = this.getRestorationDataForIdentifier(restorationIdentifier);
-            this.startVisit(location, 'restore', { restorationIdentifier, restorationData, historyChanged: true });
+            this.startVisit(location, 'restore', { restorationIdentifier, restorationData, historyChanged: true, direction });
         }
         else {
             this.adapter.pageInvalidated();
@@ -258,8 +258,10 @@ export class Controller
         return this.view.getPage().isViewTransitionEnabled();
     }
 
-    markVisitDirection(action) {
-        const direction = { advance: 'forward', restore: 'back' }[action] || 'none';
+    markVisitDirection(action, direction) {
+        if (!direction) {
+            direction = { advance: 'forward', restore: 'back' }[action] || 'none';
+        }
         document.documentElement.setAttribute('data-turbo-visit-direction', direction);
     }
 
@@ -346,7 +348,7 @@ export class Controller
         }
         this.currentVisit = this.createVisit(location, action, properties);
         this.currentVisit.scrolled = !this.useScroll;
-        this.markVisitDirection(action);
+        this.markVisitDirection(action, properties.direction);
         this.currentVisit.start();
         this.notifyApplicationAfterVisitingLocation(location);
     }

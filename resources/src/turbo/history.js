@@ -6,6 +6,7 @@ export class History
     constructor(delegate) {
         this.started = false;
         this.pageLoaded = false;
+        this.currentPosition = 0;
 
         // Event handlers
         this.onPopState = (event) => {
@@ -19,9 +20,11 @@ export class History
 
             const { ajaxTurbo } = event.state;
             const location = Location.currentLocation;
-            const { restorationIdentifier } = ajaxTurbo;
+            const { restorationIdentifier, position } = ajaxTurbo;
+            const direction = (typeof position === 'number' && position > this.currentPosition) ? 'forward' : 'back';
+            this.currentPosition = typeof position === 'number' ? position : this.currentPosition;
 
-            this.delegate.historyPoppedToLocationWithRestorationIdentifier(location, restorationIdentifier);
+            this.delegate.historyPoppedToLocationWithRestorationIdentifier(location, restorationIdentifier, direction);
         };
 
         this.onPageLoad = (event) => {
@@ -50,6 +53,7 @@ export class History
     }
 
     push(location, restorationIdentifier) {
+        this.currentPosition++;
         this.update(history.pushState, location, restorationIdentifier);
     }
 
@@ -68,7 +72,7 @@ export class History
     }
 
     update(method, location, restorationIdentifier) {
-        const state = { ajaxTurbo: { restorationIdentifier } };
+        const state = { ajaxTurbo: { restorationIdentifier, position: this.currentPosition } };
 
         method.call(history, state, '', location.absoluteURL);
     }
