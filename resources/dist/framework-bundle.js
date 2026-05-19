@@ -5804,6 +5804,15 @@ window['${id}']();`;
       if (value === "null") return null;
       if (value === "undefined") return void 0;
       if (value !== "" && !isNaN(Number(value))) return Number(value);
+      if (typeof value === "string") {
+        const first = value.charAt(0), last = value.charAt(value.length - 1);
+        if (first === "{" && last === "}" || first === "[" && last === "]") {
+          try {
+            return JSON.parse(value);
+          } catch (e) {
+          }
+        }
+      }
       return value;
     }
   };
