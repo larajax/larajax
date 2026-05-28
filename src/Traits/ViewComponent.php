@@ -43,9 +43,11 @@ trait ViewComponent
     }
 
     /**
-     * createIn controller
+     * createIn builds a component instance against the given controller,
+     * wires up its controller/config/alias, and invokes the component's
+     * optional register() hook.
      */
-    public static function createIn(AjaxControllerInterface $controller, array $config = []): static
+    public static function createIn(AjaxControllerInterface $controller, array $config = []): ViewComponentInterface
     {
         $instance = new static;
 
@@ -55,13 +57,17 @@ trait ViewComponent
 
         $instance->alias = $config['alias'] ?? array_reverse(explode('\\', static::class))[0];
 
+        if (method_exists($instance, 'register')) {
+            $instance->register();
+        }
+
         return $instance;
     }
 
     /**
      * bindToController
      */
-    public function bindToController(): static
+    public function bindToController()
     {
         if (!$this->controller) {
             throw new Exception("Component [".static::class."] has no controller specified.");

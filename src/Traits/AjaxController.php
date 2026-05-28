@@ -2,6 +2,7 @@
 
 namespace Larajax\Traits;
 
+use Closure;
 use Larajax\Exceptions\HandlerNotFound;
 use Larajax\Exceptions\ComponentNotFound;
 use Larajax\Exceptions\HandlerNameInvalid;
@@ -9,28 +10,61 @@ use Larajax\Classes\AjaxHelpers;
 use Larajax\Classes\AjaxResponse;
 use Larajax\Classes\ComponentContainer;
 use Larajax\Contracts\ViewComponentInterface;
+use Throwable;
 
 /**
- * AjaxController is a trait that can be implemented in a controller class.
+ * AjaxController is a trait that adds Larajax AJAX dispatch capabilities to
+ * a host controller class.
  */
 trait AjaxController
 {
     /**
-     * @var \Larajax\Classes\AjaxRequest ajaxRequest
+     * @var \Larajax\Classes\AjaxRequest ajaxRequest is the parsed AJAX request
      */
     protected $ajaxRequest;
 
     /**
-     * @var ComponentContainer componentContainer instance
+     * @var ComponentContainer componentContainer holds the registered view components
      */
     protected $componentContainer;
 
     /**
-     * callAjaxAction
+     * dispatchAjaxAction is the main entry point for Larajax dispatch.
+     *
+     * On AJAX requests, the action's return value is discarded; only the side effects
+     * of running it (component bindings, authorization, etc.) are kept.
+     */
+    protected function dispatchAjaxAction(string $action, array $parameters, Closure $invokeAction)
+    {
+        return $this->withAjaxControllerContext(function () use ($action, $parameters, $invokeAction) {
+            try {
+                $this->initAjaxComponents();
+
+                $viewResponse = $invokeAction($action, $parameters);
+
+                if ($result = $this->callAjaxAction($action, $parameters)) {
+                    return $result;
+                }
+            }
+            catch (Throwable $ex) {
+                if (request()->ajax()) {
+                    return ajax()->exception($ex);
+                }
+
+                throw $ex;
+            }
+
+            return $viewResponse;
+        });
+    }
+
+    /**
+     * callAjaxAction initializes the AJAX request and component container, then dispatches
+     * to the resolved handler if the incoming request carries one.
      */
     protected function callAjaxAction(string $action, array $parameters)
     {
-        $this->initAjaxRequest();
+        $this->ajaxRequest ??= ajax()->request();
 
         if ($this->ajaxRequest->hasAjaxHandler()) {
             return $this->runAjaxAction($action, $parameters);
@@ -38,12 +72,18 @@ trait AjaxController
     }
 
     /**
-     * initComponents adds component objects to the controller
+     * getAjaxRequest returns the parsed AJAX request, constructing it on first access.
      */
-    protected function initAjaxRequest()
+    public function getAjaxRequest()
     {
-        $this->ajaxRequest ??= ajax()->request();
+        return $this->ajaxRequest ??= ajax()->request();
+    }
 
+    /**
+     * initAjaxComponents ensures the component container is constructed and booted.
+     */
+    protected function initAjaxComponents()
+    {
         $this->componentContainer ??= new ComponentContainer($this);
 
         $this->componentContainer->register();
@@ -52,15 +92,7 @@ trait AjaxController
     }
 
     /**
-     * getAjaxRequest
-     */
-    public function getAjaxRequest()
-    {
-        return $this->ajaxRequest ??= ajax()->request();
-    }
-
-    /**
-     * addComponentInstance
+     * addComponentInstance binds a view component to this controller under the given alias.
      */
     public function addComponentInstance(string $alias, ViewComponentInterface $instance)
     {
@@ -78,7 +110,8 @@ trait AjaxController
     }
 
     /**
-     * getComponentInstance returns an instance of a component based on its alias
+     * getComponentInstance returns the bound component for the given alias, or null if
+     * no component is registered under that name.
      */
     public function getComponentInstance(string $alias): ?ViewComponentInterface
     {
@@ -86,7 +119,8 @@ trait AjaxController
     }
 
     /**
-     * runAjaxAction
+     * runAjaxAction validates the requested handler name, resolves it to a callable via
+     * getAjaxHandlerMethod(), invokes it, and wraps the result as an AJAX response.
      */
     protected function runAjaxAction($action, $parameters)
     {
@@ -121,7 +155,8 @@ trait AjaxController
     }
 
     /**
-     * getAjaxHandlerMethod returns the AJAX handler method to call in the implementing class
+     * getAjaxHandlerMethod resolves the AJAX handler name to a [object, method] callable,
+     * or null if no match is found.
      */
     protected function getAjaxHandlerMethod($action)
     {
@@ -151,5 +186,31 @@ trait AjaxController
         }
 
         return null;
+    }
+
+    /**
+     * withAjaxControllerContext registers this controller as the current Larajax host
+     * under 'larajax.controller' for the duration of the callback, then restores the
+     * previous binding (or clears it).
+     */
+    protected function withAjaxControllerContext(Closure $callback)
+    {
+        $previous = app()->bound('larajax.controller')
+            ? app('larajax.controller')
+            : null;
+
+        app()->instance('larajax.controller', $this);
+
+        try {
+            return $callback();
+        }
+        finally {
+            if ($previous !== null) {
+                app()->instance('larajax.controller', $previous);
+            }
+            else {
+                app()->forgetInstance('larajax.controller');
+            }
+        }
     }
 }

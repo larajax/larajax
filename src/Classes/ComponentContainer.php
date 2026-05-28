@@ -29,6 +29,18 @@ class ComponentContainer implements IteratorAggregate
     public static $globalComponents = [];
 
     /**
+     * @var bool registered indicates that register() has already run, so
+     * declared and global components are not re-instantiated on repeat
+     * calls (e.g. nested dispatch).
+     */
+    protected $registered = false;
+
+    /**
+     * @var bool booted indicates that boot() has already run.
+     */
+    protected $booted = false;
+
+    /**
      * __construct
      */
     public function __construct($controller)
@@ -37,10 +49,18 @@ class ComponentContainer implements IteratorAggregate
     }
 
     /**
-     * register registers component references from a controller
+     * register registers component references from a controller. Idempotent:
+     * subsequent calls are no-ops, so it is safe to call from dispatch paths
+     * that may run more than once per request (e.g. nested dispatch).
      */
     public function register()
     {
+        if ($this->registered) {
+            return;
+        }
+
+        $this->registered = true;
+
         if (
             property_exists($this->controller, 'components') &&
             is_array($this->controller->components)
@@ -56,10 +76,16 @@ class ComponentContainer implements IteratorAggregate
     }
 
     /**
-     * bootComponents initializes all the components
+     * boot invokes the boot() hook on every registered component.
      */
     public function boot()
     {
+        if ($this->booted) {
+            return;
+        }
+
+        $this->booted = true;
+
         foreach ($this->componentData['components'] as $componentObj) {
             if (method_exists($componentObj, 'boot')) {
                 $componentObj->boot();
@@ -68,7 +94,7 @@ class ComponentContainer implements IteratorAggregate
     }
 
     /**
-     * bind adds a component instance to the page
+     * bind adds a component instance to the page.
      */
     public function bind(string $alias, object $instance)
     {
@@ -79,6 +105,10 @@ class ComponentContainer implements IteratorAggregate
             foreach ($instance->components as $componentClass) {
                 $componentClass::createIn($this->controller)->bindToController();
             }
+        }
+
+        if ($this->booted && method_exists($instance, 'boot')) {
+            $instance->boot();
         }
     }
 
@@ -100,6 +130,8 @@ class ComponentContainer implements IteratorAggregate
                 return [$component, $handler];
             }
         }
+
+        return null;
     }
 
     /**
