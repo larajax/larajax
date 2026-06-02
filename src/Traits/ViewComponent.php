@@ -39,7 +39,11 @@ trait ViewComponent
             );
         }
 
-        return static::createIn(app('larajax.controller'), $config)->bindToController();
+        $instance = static::createIn(app('larajax.controller'), $config);
+
+        $instance->bindToController();
+
+        return $instance;
     }
 
     /**
@@ -74,7 +78,5 @@ trait ViewComponent
         }
 
         $this->controller->addComponentInstance($this->alias, $this);
-
-        return $this;
     }
 }
