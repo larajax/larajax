@@ -18,8 +18,8 @@ export class AssetManager
     }
 
     async loadCollection(collection = {}) {
-        const jsList  = (collection.js  ?? []).map(normalizeAsset).filter(asset => asset.inline || !document.querySelector(`head script[src="${htmlEscape(asset.url)}"]`));
-        const cssList = (collection.css ?? []).map(normalizeAsset).filter(asset => !document.querySelector(`head link[href="${htmlEscape(asset.url)}"]`));
+        const jsList  = (collection.js  ?? []).map(normalizeAsset).filter(asset => asset.inline || !jsInDom(asset.url));
+        const cssList = (collection.css ?? []).map(normalizeAsset).filter(asset => !cssInDom(asset.url));
         const imgList = (collection.img ?? []).map(normalizeAsset);
 
         if (!jsList.length && !cssList.length && !imgList.length) {
@@ -36,6 +36,12 @@ export class AssetManager
     loadStyleSheet(asset) {
         const { url, attributes = {} } = asset;
         return new Promise((resolve, reject) => {
+            // Re-check the DOM immediately before append
+            if (cssInDom(url)) {
+                resolve(null);
+                return;
+            }
+
             const el = document.createElement('link');
             el.rel = 'stylesheet';
             el.type = 'text/css';
@@ -100,6 +106,12 @@ export class AssetManager
             // External script
             const { url, attributes = {} } = asset;
             return p.then(() => new Promise((resolve, reject) => {
+                // Re-check the DOM immediately before append
+                if (jsInDom(url)) {
+                    resolve(null);
+                    return;
+                }
+
                 const el = document.createElement('script');
 
                 // Set type based on attributes, default to text/javascript unless 'module' is specified
@@ -145,6 +157,14 @@ export class AssetManager
 
 // Counter for unique inline module sentinel callbacks
 let inlineModuleId = 0;
+
+function jsInDom(url) {
+    return !!document.querySelector(`head script[src="${htmlEscape(url)}"]`);
+}
+
+function cssInDom(url) {
+    return !!document.querySelector(`head link[href="${htmlEscape(url)}"]`);
+}
 
 // Normalize asset entry: string -> { url }, object -> as-is
 function normalizeAsset(asset) {
