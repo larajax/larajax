@@ -304,6 +304,21 @@ export class Request
         }
     }
 
+    // Restores loading indicators while a full-page navigation is pending,
+    // since requestFinished hides them before the browser leaves the page.
+    // The pageshow listener cleans up when the page is restored from the
+    // back/forward cache instead of being unloaded.
+    requestRedirecting() {
+        this.markAsProgress(true);
+        this.toggleLoadingElement(true);
+
+        if (this.options.progressBar) {
+            this.showProgressBar();
+        }
+
+        window.addEventListener('pageshow', () => this.requestFinished(), { once: true });
+    }
+
     // Private
     initOtherElements() {
         if (typeof this.options.form === 'string') {

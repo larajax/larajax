@@ -299,12 +299,14 @@ export class Actions
             turboVisit(href);
         }
         else {
+            this.delegate.requestRedirecting();
             location.assign(href);
         }
     }
 
     // Custom function, reload the browser
     handleReloadResponse() {
+        this.delegate.requestRedirecting();
         location.reload();
     }
 
