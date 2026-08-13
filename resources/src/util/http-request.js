@@ -95,8 +95,9 @@ export class HttpRequest
         if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
             this.failed = true;
             this.notifyApplicationAfterRequestEnd();
-            this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
-            this.destroy();
+            await this.settleWithDelegate(() =>
+                this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch)
+            );
             return;
         }
 
@@ -115,17 +116,31 @@ export class HttpRequest
         // Check status code
         if (response.status >= 200 && response.status < 300) {
             this.notifyApplicationAfterRequestEnd();
-            this.delegate.requestCompletedWithResponse(
-                responseData,
-                response.status,
-                this.getRedirectLocation(response)
+            await this.settleWithDelegate(() =>
+                this.delegate.requestCompletedWithResponse(
+                    responseData,
+                    response.status,
+                    this.getRedirectLocation(response)
+                )
             );
-            this.destroy();
         }
         else {
             this.failed = true;
             this.notifyApplicationAfterRequestEnd();
-            this.delegate.requestFailedWithStatusCode(response.status, responseData);
+            await this.settleWithDelegate(() =>
+                this.delegate.requestFailedWithStatusCode(response.status, responseData)
+            );
+        }
+    }
+
+    async settleWithDelegate(callback) {
+        try {
+            await callback();
+        }
+        catch (error) {
+            Promise.reject(error);
+        }
+        finally {
             this.destroy();
         }
     }

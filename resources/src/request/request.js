@@ -14,6 +14,7 @@ export class Request
         this.handler = handler;
         this.options = { ...this.constructor.DEFAULTS, ...(options || {}) };
         this.context = { el: element, handler: handler, options: this.options };
+        this.isNavigating = false;
 
         this.progressBar = new ProgressBar;
         this.showProgressBar = () => {
@@ -296,6 +297,15 @@ export class Request
     }
 
     requestFinished() {
+        if (this.isNavigating) {
+            window.addEventListener('pageshow', () => {
+                this.isNavigating = false;
+                this.requestFinished();
+            }, { once: true });
+
+            return;
+        }
+
         this.markAsProgress(false);
         this.toggleLoadingElement(false);
 
