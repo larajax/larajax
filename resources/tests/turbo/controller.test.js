@@ -157,22 +157,47 @@ describe('Controller', () => {
     });
 
     describe('scroll restoration', () => {
-        it('start() sets history.scrollRestoration to manual', () => {
+        it('start() does not change history.scrollRestoration so reloads keep native restore', () => {
             history.scrollRestoration = 'auto';
             controller.start();
+            expect(history.scrollRestoration).toBe('auto');
+        });
+
+        it('takeOverScrollRestoration() sets history.scrollRestoration to manual', () => {
+            history.scrollRestoration = 'auto';
+            controller.start();
+            controller.takeOverScrollRestoration();
             expect(history.scrollRestoration).toBe('manual');
         });
 
-        it('start() saves previous scrollRestoration value', () => {
+        it('takeOverScrollRestoration() saves previous scrollRestoration value', () => {
             history.scrollRestoration = 'auto';
             controller.start();
+            controller.takeOverScrollRestoration();
             expect(controller.previousScrollRestoration).toBe('auto');
         });
 
-        it('stop() restores previous scrollRestoration value', () => {
+        it('takeOverScrollRestoration() is idempotent', () => {
             history.scrollRestoration = 'auto';
             controller.start();
+            controller.takeOverScrollRestoration();
+            history.scrollRestoration = 'auto';
+            controller.takeOverScrollRestoration();
+            expect(controller.previousScrollRestoration).toBe('auto');
+        });
+
+        it('stop() restores previous scrollRestoration value when taken over', () => {
+            history.scrollRestoration = 'auto';
+            controller.start();
+            controller.takeOverScrollRestoration();
             expect(history.scrollRestoration).toBe('manual');
+            controller.stop();
+            expect(history.scrollRestoration).toBe('auto');
+        });
+
+        it('stop() leaves scrollRestoration alone when never taken over', () => {
+            history.scrollRestoration = 'auto';
+            controller.start();
             controller.stop();
             expect(history.scrollRestoration).toBe('auto');
         });

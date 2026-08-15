@@ -14,6 +14,7 @@ export class Request
         this.handler = handler;
         this.options = { ...this.constructor.DEFAULTS, ...(options || {}) };
         this.context = { el: element, handler: handler, options: this.options };
+        this.isNavigating = false;
 
         this.progressBar = new ProgressBar;
         this.showProgressBar = () => {
@@ -253,7 +254,11 @@ export class Request
     }
 
     notifyApplicationCustomEvent(name, data) {
-        return dispatch(name, { target: this.el, detail: data });
+        const target = this.el instanceof Node && document.contains(this.el)
+            ? this.el
+            : document;
+
+        return dispatch(name, { target, detail: data });
     }
 
     // HTTP request delegate
@@ -292,6 +297,15 @@ export class Request
     }
 
     requestFinished() {
+        if (this.isNavigating) {
+            window.addEventListener('pageshow', () => {
+                this.isNavigating = false;
+                this.requestFinished();
+            }, { once: true });
+
+            return;
+        }
+
         this.markAsProgress(false);
         this.toggleLoadingElement(false);
 

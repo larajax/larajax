@@ -72,11 +72,16 @@ export class Controller
             this.scrollManager.start();
             this.started = true;
             this.enabled = this.documentIsEnabled();
+        }
+    }
 
-            if ('scrollRestoration' in history) {
-                this.previousScrollRestoration = history.scrollRestoration;
-                history.scrollRestoration = 'manual';
-            }
+    // Defer taking over scrollRestoration until the first SPA visit, so that
+    // a plain reload of the initial page still restores native scroll position.
+    takeOverScrollRestoration() {
+        if ('scrollRestoration' in history && !this.scrollRestorationTakenOver) {
+            this.previousScrollRestoration = history.scrollRestoration;
+            history.scrollRestoration = 'manual';
+            this.scrollRestorationTakenOver = true;
         }
     }
 
@@ -93,8 +98,9 @@ export class Controller
             this.stopHistory();
             this.started = false;
 
-            if ('scrollRestoration' in history && this.previousScrollRestoration) {
+            if ('scrollRestoration' in history && this.scrollRestorationTakenOver && this.previousScrollRestoration) {
                 history.scrollRestoration = this.previousScrollRestoration;
+                this.scrollRestorationTakenOver = false;
             }
         }
     }
@@ -120,6 +126,7 @@ export class Controller
         if (this.applicationAllowsVisitingLocation(location, action)) {
             if (this.locationIsVisitable(location)) {
                 this.useScroll = options.scroll !== false;
+                this.takeOverScrollRestoration();
                 this.adapter.visitProposedToLocationWithAction(location, action);
             }
             else {
@@ -182,6 +189,7 @@ export class Controller
         if (this.enabled) {
             this.location = location;
             this.restorationIdentifier = restorationIdentifier;
+            this.takeOverScrollRestoration();
             const restorationData = this.getRestorationDataForIdentifier(restorationIdentifier);
             this.startVisit(location, 'restore', { restorationIdentifier, restorationData, historyChanged: true, direction });
         }
