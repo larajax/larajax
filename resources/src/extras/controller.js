@@ -28,7 +28,9 @@ export class Controller
         };
 
         this.hideAllAttachLoaders = (event) => {
-            this.attachLoader.hideAll();
+            if (event.persisted) {
+                this.attachLoader.hideAll();
+            }
         };
 
         // Validator
@@ -127,6 +129,7 @@ export class Controller
             Events.on(document, 'ajax:promise', 'form, [data-attach-loading]', this.showAttachLoader);
             Events.on(document, 'ajax:fail', 'form, [data-attach-loading]', this.hideAttachLoader);
             Events.on(document, 'ajax:done', 'form, [data-attach-loading]', this.hideAttachLoader);
+            addEventListener('pageshow', this.hideAllAttachLoaders);
 
             // Validator
             this.validator = new Validator;
@@ -155,6 +158,7 @@ export class Controller
             Events.off(document, 'ajax:promise', 'form, [data-attach-loading]', this.showAttachLoader);
             Events.off(document, 'ajax:fail', 'form, [data-attach-loading]', this.hideAttachLoader);
             Events.off(document, 'ajax:done', 'form, [data-attach-loading]', this.hideAttachLoader);
+            removeEventListener('pageshow', this.hideAllAttachLoaders);
 
             // Validator
             this.validator = null;
