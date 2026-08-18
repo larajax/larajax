@@ -457,6 +457,7 @@ export class AjaxRequest {
     constructor(element: HTMLElement | null, handler: string, options?: RequestOptions);
     static send<T = DataResponse>(handler: string, options?: RequestOptions<T>): Promise<T>;
     static sendElement<T = DataResponse>(element: HTMLElement | string, handler: string, options?: RequestOptions<T>): Promise<T>;
+    static markNavigating(): void;
 }
 
 export { ControlBase };
@@ -481,6 +482,7 @@ export interface JaxObject {
     AjaxRequest: typeof AjaxRequest;
     AssetManager: AssetManager;
     ajax: typeof ajax;
+    markNavigating: typeof AjaxRequest.markNavigating;
 
     // Framework
     AjaxFramework: AjaxFrameworkNamespace;

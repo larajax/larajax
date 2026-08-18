@@ -24,6 +24,7 @@ export function buildJaxObject(modules) {
         AjaxRequest,
         AssetManager,
         ajax: AjaxRequest.send,
+        markNavigating: AjaxRequest.markNavigating,
 
         // Core
         AjaxFramework,

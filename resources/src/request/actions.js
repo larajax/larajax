@@ -299,14 +299,14 @@ export class Actions
             turboVisit(href);
         }
         else {
-            this.delegate.isNavigating = true;
+            this.delegate.markNavigating();
             location.assign(href);
         }
     }
 
     // Custom function, reload the browser
     handleReloadResponse() {
-        this.delegate.isNavigating = true;
+        this.delegate.markNavigating();
         location.reload();
     }
 

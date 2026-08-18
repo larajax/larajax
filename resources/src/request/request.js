@@ -7,6 +7,8 @@ import { ProgressBar } from "../extras/progress-bar";
 import { dispatch } from "../util";
 import { cancellablePromise } from "../util/promise";
 
+let appNavigating = false;
+
 export class Request
 {
     constructor(element, handler, options) {
@@ -14,7 +16,6 @@ export class Request
         this.handler = handler;
         this.options = { ...this.constructor.DEFAULTS, ...(options || {}) };
         this.context = { el: element, handler: handler, options: this.options };
-        this.isNavigating = false;
 
         this.progressBar = new ProgressBar;
         this.showProgressBar = () => {
@@ -133,6 +134,14 @@ export class Request
         }
 
         return (new Request(element, handler, options)).start();
+    }
+
+    static markNavigating() {
+        appNavigating = true;
+    }
+
+    markNavigating() {
+        appNavigating = true;
     }
 
     toggleRedirect(redirectUrl) {
@@ -297,9 +306,9 @@ export class Request
     }
 
     requestFinished() {
-        if (this.isNavigating) {
+        if (appNavigating) {
             window.addEventListener('pageshow', () => {
-                this.isNavigating = false;
+                appNavigating = false;
                 this.requestFinished();
             }, { once: true });
 
