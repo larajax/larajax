@@ -20,6 +20,8 @@ export class HttpRequest
         this.url = url;
         this.options = options;
 
+        this.context = options.context || null;
+
         this.headers = options.headers || {};
         this.method = options.method || 'GET';
         this.data = options.data;
@@ -200,11 +202,11 @@ export class HttpRequest
 
     // Application events
     notifyApplicationBeforeRequestStart() {
-        Events.dispatch('ajax:request-start', { detail: { url: this.url, xhr: this.xhr }, cancelable: false });
+        Events.dispatch('ajax:request-start', { detail: { url: this.url, xhr: this.xhr, context: this.context }, cancelable: false });
     }
 
     notifyApplicationAfterRequestEnd() {
-        Events.dispatch('ajax:request-end', { detail: { url: this.url, xhr: this.xhr }, cancelable: false });
+        Events.dispatch('ajax:request-end', { detail: { url: this.url, xhr: this.xhr, context: this.context }, cancelable: false });
     }
 
     // XHR compatibility wrapper

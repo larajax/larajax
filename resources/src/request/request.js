@@ -94,7 +94,7 @@ export class Request
 
         // Prepare request
         const { url, headers, method } = Options.fetch(this.handler, this.options);
-        this.request = new HttpRequest(this, url, { method, headers, data, trackAbort: true });
+        this.request = new HttpRequest(this, url, { method, headers, data, trackAbort: true, context: this.context });
         this.isRedirect = this.options.redirect && this.options.redirect.length > 0;
 
         // Lifecycle events
