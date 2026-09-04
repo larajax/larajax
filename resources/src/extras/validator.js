@@ -15,6 +15,11 @@ export class Validator
         form.querySelectorAll('[data-validate-error]').forEach(function(el) {
             el.classList.remove('jax-visible');
         });
+
+        // Reset invalid field styles
+        form.querySelectorAll('.is-invalid').forEach(function(el) {
+            el.classList.remove('is-invalid');
+        });
     }
 
     validate(el, fields, errorMsg, allowDefault) {
@@ -38,6 +43,13 @@ export class Validator
                     field.innerHTML = fieldMessages.join(', ');
                 }
                 field.classList.add('jax-visible');
+            }
+
+            // Flag the invalid field by name, its message is filled by the
+            // data-validate-for container above (e.g. a .invalid-feedback element)
+            var input = form.querySelector('[name="'+fieldName+'"], [name="'+fieldName+'[]"]');
+            if (input) {
+                input.classList.add('is-invalid');
             }
         }
 
