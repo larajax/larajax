@@ -312,6 +312,7 @@ export interface AjaxRequestStartEvent extends CustomEvent {
     detail: {
         url: string;
         xhr: XMLHttpRequest;
+        context: AjaxEventContext | null;
     };
 }
 
@@ -319,6 +320,7 @@ export interface AjaxRequestEndEvent extends CustomEvent {
     detail: {
         url: string;
         xhr: XMLHttpRequest;
+        context: AjaxEventContext | null;
     };
 }
 
