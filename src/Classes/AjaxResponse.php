@@ -523,28 +523,30 @@ class AjaxResponse implements Responsable
                 : $this->error($message, $status);
         }
 
+        // From here the exception is unintended
+        report($exception);
+        $message = $this->safeMessage($exception);
+
         if ($exception instanceof \Illuminate\Database\QueryException) {
-            return $this->fatal($this->safeMessage($exception));
+            return $this->fatal($message);
         }
 
         if ($exception instanceof \Exception) {
-            return $this->error($this->safeMessage($exception));
+            return $this->error($message);
         }
 
         // Throwable but not Exception (i.e., Error)
-        return $this->fatal($this->safeMessage($exception));
+        return $this->fatal($message);
     }
 
     /**
      * safeMessage returns the exception message when debug mode is on, and a
-     * generic string otherwise. A QueryException message carries the failed
-     * SQL, and an unhandled Exception or Error can carry file paths or other
-     * internals, so returning it raw exposes them to the browser even in
-     * production.
+     * generic string otherwise, since an unintended exception can carry SQL,
+     * file paths or other internals that should not reach the browser.
      */
     protected function safeMessage(\Throwable $exception): string
     {
-        if (function_exists('config') && config('app.debug')) {
+        if (config('app.debug')) {
             return $exception->getMessage();
         }
 
