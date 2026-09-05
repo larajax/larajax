@@ -19,6 +19,7 @@ export class Actions
         this.context.complete = decoratePromiseProxy(this.complete, this);
         this.context.cancel = this.cancel.bind(this);
         this.context.handleErrorMessage = this.handleErrorMessage.bind(this);
+        this.context.handleBrowserEvents = this.handleBrowserEvents.bind(this);
     }
 
     // Options can override all public methods in this class
