@@ -540,12 +540,18 @@ class AjaxResponse implements Responsable
     }
 
     /**
-     * safeMessage returns the exception message when debug mode is on, and a
-     * generic string otherwise, since an unintended exception can carry SQL,
-     * file paths or other internals that should not reach the browser.
+     * safeMessage returns the getSafeMessage contract when implemented, the exception
+     * message when debug mode is on, and a generic string otherwise, since an unintended
+     * exception can carry SQL, file paths or other internals that should not reach
+     * the browser.
      */
     protected function safeMessage(\Throwable $exception): string
     {
+        // Safe message interface
+        if (method_exists($exception, 'getSafeMessage')) {
+            return $exception->{'getSafeMessage'}();
+        }
+
         if (config('app.debug')) {
             return $exception->getMessage();
         }
