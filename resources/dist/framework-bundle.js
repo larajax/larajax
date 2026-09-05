@@ -1073,11 +1073,13 @@ window['${id}']();`;
       if (isTurboEnabled()) {
         turboVisit(href);
       } else {
+        this.delegate.markNavigating();
         location.assign(href);
       }
     }
     // Custom function, reload the browser
     handleReloadResponse() {
+      this.delegate.markNavigating();
       location.reload();
     }
     // Mark known elements as being updated
@@ -1429,6 +1431,7 @@ window['${id}']();`;
       this.delegate = delegate;
       this.url = url;
       this.options = options;
+      this.context = options.context || null;
       this.headers = options.headers || {};
       this.method = options.method || "GET";
       this.data = options.data;
@@ -1483,8 +1486,9 @@ window['${id}']();`;
       if (this.options.htmlOnly && !contentTypeIsHTML(contentType)) {
         this.failed = true;
         this.notifyApplicationAfterRequestEnd();
-        this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch);
-        this.destroy();
+        await this.settleWithDelegate(
+          () => this.delegate.requestFailedWithStatusCode(SystemStatusCode.contentTypeMismatch)
+        );
         return;
       }
       let responseData;
@@ -1497,16 +1501,27 @@ window['${id}']();`;
       }
       if (response.status >= 200 && response.status < 300) {
         this.notifyApplicationAfterRequestEnd();
-        this.delegate.requestCompletedWithResponse(
-          responseData,
-          response.status,
-          this.getRedirectLocation(response)
+        await this.settleWithDelegate(
+          () => this.delegate.requestCompletedWithResponse(
+            responseData,
+            response.status,
+            this.getRedirectLocation(response)
+          )
         );
-        this.destroy();
       } else {
         this.failed = true;
         this.notifyApplicationAfterRequestEnd();
-        this.delegate.requestFailedWithStatusCode(response.status, responseData);
+        await this.settleWithDelegate(
+          () => this.delegate.requestFailedWithStatusCode(response.status, responseData)
+        );
+      }
+    }
+    async settleWithDelegate(callback) {
+      try {
+        await callback();
+      } catch (error) {
+        Promise.reject(error);
+      } finally {
         this.destroy();
       }
     }
@@ -1554,10 +1569,10 @@ window['${id}']();`;
     }
     // Application events
     notifyApplicationBeforeRequestStart() {
-      Events.dispatch("ajax:request-start", { detail: { url: this.url, xhr: this.xhr }, cancelable: false });
+      Events.dispatch("ajax:request-start", { detail: { url: this.url, xhr: this.xhr, context: this.context }, cancelable: false });
     }
     notifyApplicationAfterRequestEnd() {
-      Events.dispatch("ajax:request-end", { detail: { url: this.url, xhr: this.xhr }, cancelable: false });
+      Events.dispatch("ajax:request-end", { detail: { url: this.url, xhr: this.xhr, context: this.context }, cancelable: false });
     }
     // XHR compatibility wrapper
     createXhrWrapper() {
@@ -1722,6 +1737,7 @@ window['${id}']();`;
   }
 
   // src/request/request.js
+  var appNavigating = false;
   var Request = class _Request {
     constructor(element, handler, options) {
       this.el = element;
@@ -1782,7 +1798,7 @@ window['${id}']();`;
         ]);
       }
       const { url, headers, method } = Options.fetch(this.handler, this.options);
-      this.request = new HttpRequest(this, url, { method, headers, data, trackAbort: true });
+      this.request = new HttpRequest(this, url, { method, headers, data, trackAbort: true, context: this.context });
       this.isRedirect = this.options.redirect && this.options.redirect.length > 0;
       this.notifyApplicationBeforeSend();
       this.notifyApplicationAjaxPromise();
@@ -1811,6 +1827,12 @@ window['${id}']();`;
         element = document.querySelector(element);
       }
       return new _Request(element, handler, options).start();
+    }
+    static markNavigating() {
+      appNavigating = true;
+    }
+    markNavigating() {
+      appNavigating = true;
     }
     toggleRedirect(redirectUrl) {
       if (!redirectUrl) {
@@ -1935,6 +1957,13 @@ window['${id}']();`;
       this.promise.reject(data);
     }
     requestFinished() {
+      if (appNavigating) {
+        window.addEventListener("pageshow", () => {
+          appNavigating = false;
+          this.requestFinished();
+        }, { once: true });
+        return;
+      }
       this.markAsProgress(false);
       this.toggleLoadingElement(false);
       if (this.options.progressBar) {
@@ -3339,8 +3368,10 @@ window['${id}']();`;
       this.hideAttachLoader = (event) => {
         this.attachLoader.hideForm(event.target);
       };
-      this.hideAllAttachLoaders = (event) => {
-        this.attachLoader.hideAll();
+      this.handlePageRestore = (event) => {
+        if (event.persisted) {
+          this.attachLoader.hideAll();
+        }
       };
       this.validatorSubmit = (event) => {
         this.validator.submit(event.target);
@@ -3410,6 +3441,7 @@ window['${id}']();`;
         Events.on(document, "ajax:promise", "form, [data-attach-loading]", this.showAttachLoader);
         Events.on(document, "ajax:fail", "form, [data-attach-loading]", this.hideAttachLoader);
         Events.on(document, "ajax:done", "form, [data-attach-loading]", this.hideAttachLoader);
+        addEventListener("pageshow", this.handlePageRestore);
         this.validator = new Validator();
         Events.on(document, "ajax:before-validate", "[data-request-validate]", this.validatorValidate);
         Events.on(document, "ajax:promise", "[data-request-validate]", this.validatorSubmit);
@@ -3427,6 +3459,7 @@ window['${id}']();`;
         Events.off(document, "ajax:promise", "form, [data-attach-loading]", this.showAttachLoader);
         Events.off(document, "ajax:fail", "form, [data-attach-loading]", this.hideAttachLoader);
         Events.off(document, "ajax:done", "form, [data-attach-loading]", this.hideAttachLoader);
+        removeEventListener("pageshow", this.handlePageRestore);
         this.validator = null;
         Events.off(document, "ajax:before-validate", "[data-request-validate]", this.validatorValidate);
         Events.off(document, "ajax:promise", "[data-request-validate]", this.validatorSubmit);
@@ -5862,6 +5895,7 @@ window['${id}']();`;
       AjaxRequest,
       AssetManager: AssetManager2,
       ajax: AjaxRequest.send,
+      markNavigating: AjaxRequest.markNavigating,
       // Core
       AjaxFramework,
       request: AjaxFramework.requestElement,
