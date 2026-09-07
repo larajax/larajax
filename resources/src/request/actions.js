@@ -96,7 +96,7 @@ export class Actions
         // Disable redirects
         this.delegate.toggleRedirect(false);
 
-        if (!data.$env?.isFatal()) {
+        if (data.$env && !data.$env.isFatal()) {
             await this.invoke('handleUpdateOperations', [data, responseCode, xhr]);
             await this.invoke('handleUpdateResponse', [data, responseCode, xhr]);
         }
