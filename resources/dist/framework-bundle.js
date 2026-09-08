@@ -3863,7 +3863,7 @@ window['${id}']();`;
     processRemovedNodes(nodes) {
       for (const node of Array.from(nodes)) {
         const element = this.elementFromNode(node);
-        if (element) {
+        if (element && !this.elementIsActive(element)) {
           this.processTree(element, this.removeElement);
         }
       }
