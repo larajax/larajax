@@ -88,7 +88,7 @@ export class Request
             this.actions.invoke('applyQueryToUrl', [
                 this.options.query !== true
                     ? this.options.query
-                    : JSON.parse(dataObj.getAsJsonData())
+                    : dataObj.getAsJsonObject()
             ]);
         }
 

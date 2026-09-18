@@ -39,12 +39,23 @@ export class Data
         );
     }
 
-    getAsJsonData() {
-        return JSON.stringify(
-            this.convertFormDataToJson(
-                this.getAsFormData()
-            )
+    getAsJsonObject() {
+        return this.convertFormDataToJson(
+            this.getAsFormData()
         );
+    }
+
+    getAsJsonData() {
+        const formData = this.getAsFormData();
+        const jsonData = this.convertFormDataToJson(formData);
+
+        // Carry key order for integer-keyed objects, which JSON does not preserve.
+        const orders = this.buildOrderManifest(formData);
+        if (orders.length) {
+            jsonData.__ajax = { orders };
+        }
+
+        return JSON.stringify(jsonData);
     }
 
     // Private
@@ -127,6 +138,38 @@ export class Data
             .join('&');
     }
 
+    buildOrderManifest(formData) {
+        // Capture DOM order of integer-keyed objects before the nested build re-sorts them.
+        const ordersByPath = {};
+
+        Array.from(formData.keys()).forEach((name) => {
+            const segments = name.match(/[^\]\[]+/g) || [];
+
+            // Each integer-like segment marks a parent container whose order matters.
+            for (let i = 1; i < segments.length; i++) {
+                const key = segments[i];
+                if (!isIntegerKey(key)) {
+                    continue;
+                }
+
+                const parentPath = segments.slice(0, i);
+                const pathKey = parentPath.join('\0');
+
+                if (!ordersByPath[pathKey]) {
+                    ordersByPath[pathKey] = { path: parentPath, keys: [] };
+                }
+
+                // First-seen wins.
+                if (!ordersByPath[pathKey].keys.includes(key)) {
+                    ordersByPath[pathKey].keys.push(key);
+                }
+            }
+        });
+
+        // Only emit containers with something to reorder.
+        return Object.values(ordersByPath).filter(entry => entry.keys.length > 1);
+    }
+
     convertFormDataToJson(formData) {
         // Process to a flat object with array values
         let flatData = this.formDataToArray(formData);
@@ -170,4 +213,9 @@ export class Data
 
 function isElementInput(el) {
     return ['input', 'select', 'textarea'].includes((el.tagName || '').toLowerCase());
+}
+
+function isIntegerKey(key) {
+    // Canonical array-index strings, which JS reorders ascending.
+    return /^(0|[1-9][0-9]*)$/.test(key);
 }

@@ -138,6 +138,9 @@ trait AjaxController
             throw new HandlerNotFound("AJAX handler [{$handler}] not found");
         }
 
+        // Finalize the ordered JSON input
+        $this->ajaxRequest->applyEnvelope();
+
         $call = method_exists($this, 'makeCallForAjax')
             ? $this->makeCallForAjax($method, $parameters)
             : app()->call($method, $parameters);

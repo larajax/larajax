@@ -140,6 +140,117 @@ describe('Data', () => {
         });
     });
 
+    describe('buildOrderManifest', () => {
+        it('captures DOM order for integer-keyed objects', () => {
+            const data = new Data();
+            const fd = new FormData();
+            // Non-ascending source order, as a drag-sorted repeater produces
+            fd.append('blocks[17][title]', 'aaaa');
+            fd.append('blocks[16][title]', 'bbb');
+            fd.append('blocks[19][title]', 'ccc');
+            const orders = data.buildOrderManifest(fd);
+            expect(orders).toEqual([
+                { path: ['blocks'], keys: ['17', '16', '19'] }
+            ]);
+        });
+
+        it('records first-seen key order across multiple fields per container', () => {
+            const data = new Data();
+            const fd = new FormData();
+            fd.append('blocks[17][title]', 'a');
+            fd.append('blocks[17][content]', 'a-body');
+            fd.append('blocks[16][title]', 'b');
+            fd.append('blocks[16][content]', 'b-body');
+            const orders = data.buildOrderManifest(fd);
+            expect(orders).toEqual([
+                { path: ['blocks'], keys: ['17', '16'] }
+            ]);
+        });
+
+        it('handles nested integer-keyed containers with segment paths', () => {
+            const data = new Data();
+            const fd = new FormData();
+            fd.append('SingleRecord[blocks][17][title]', 'a');
+            fd.append('SingleRecord[blocks][16][title]', 'b');
+            const orders = data.buildOrderManifest(fd);
+            expect(orders).toEqual([
+                { path: ['SingleRecord', 'blocks'], keys: ['17', '16'] }
+            ]);
+        });
+
+        it('ignores string-keyed objects (already order-safe)', () => {
+            const data = new Data();
+            const fd = new FormData();
+            fd.append('user[name]', 'John');
+            fd.append('user[email]', 'j@test.com');
+            expect(data.buildOrderManifest(fd)).toEqual([]);
+        });
+
+        it('ignores [] arrays (already order-safe)', () => {
+            const data = new Data();
+            const fd = new FormData();
+            fd.append('tags[]', 'a');
+            fd.append('tags[]', 'b');
+            expect(data.buildOrderManifest(fd)).toEqual([]);
+        });
+
+        it('omits single-key containers (nothing to reorder)', () => {
+            const data = new Data();
+            const fd = new FormData();
+            fd.append('blocks[0][title]', 'only');
+            expect(data.buildOrderManifest(fd)).toEqual([]);
+        });
+    });
+
+    describe('getAsJsonData', () => {
+        it('attaches __ajax.orders capturing DOM order for integer-keyed objects', () => {
+            // Repeater rows in non-ascending DOM order (as drag-sort/delete produces)
+            const form = document.createElement('form');
+            form.innerHTML =
+                '<input name="blocks[17][title]" value="aaaa">' +
+                '<input name="blocks[16][title]" value="bbb">' +
+                '<input name="blocks[19][title]" value="ccc">';
+            document.body.appendChild(form);
+
+            const data = new Data({}, null, form);
+            const parsed = JSON.parse(data.getAsJsonData());
+
+            expect(parsed.__ajax).toEqual({
+                orders: [{ path: ['blocks'], keys: ['17', '16', '19'] }]
+            });
+            form.remove();
+        });
+
+        it('omits the envelope when there is nothing to reorder', () => {
+            const form = document.createElement('form');
+            form.innerHTML = '<input name="user[name]" value="John">';
+            document.body.appendChild(form);
+
+            const data = new Data({}, null, form);
+            const parsed = JSON.parse(data.getAsJsonData());
+
+            expect(parsed.__ajax).toBeUndefined();
+            form.remove();
+        });
+    });
+
+    describe('getAsJsonObject', () => {
+        it('returns the nested object without the __ajax envelope', () => {
+            const form = document.createElement('form');
+            form.innerHTML =
+                '<input name="blocks[17][title]" value="a">' +
+                '<input name="blocks[16][title]" value="b">';
+            document.body.appendChild(form);
+
+            const data = new Data({}, null, form);
+            const obj = data.getAsJsonObject();
+
+            expect(obj.__ajax).toBeUndefined();
+            expect(obj.blocks).toBeDefined();
+            form.remove();
+        });
+    });
+
     describe('getRequestData', () => {
         it('returns FormData from form element', () => {
             const form = document.createElement('form');

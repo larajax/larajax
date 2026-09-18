@@ -13,6 +13,11 @@ class AjaxRequest
     const HEADER_PARTIALS = 'X-AJAX-PARTIALS';
 
     /**
+     * ENVELOPE_KEY is the reserved request-metadata key, stripped before dispatch.
+     */
+    const ENVELOPE_KEY = '__ajax';
+
+    /**
      * @var string handler
      */
     public $handler;
@@ -48,6 +53,11 @@ class AjaxRequest
     public $request;
 
     /**
+     * @var array|null envelope holds the parsed request envelope, or null if absent
+     */
+    public $envelope;
+
+    /**
      * fromRequest
      *
      * @param  \Illuminate\Http\Request  $request
@@ -55,6 +65,8 @@ class AjaxRequest
     public function fromRequest($request): static
     {
         $this->request = $request;
+
+        $this->envelope = $this->parseEnvelope();
 
         [$this->component, $this->handler] = $this->getAjaxHandlerName();
 
@@ -127,5 +139,90 @@ class AjaxRequest
         }
 
         return [];
+    }
+
+    /**
+     * parseEnvelope returns the request envelope metadata, or null if none was sent.
+     */
+    protected function parseEnvelope(): ?array
+    {
+        $envelope = $this->request->input(self::ENVELOPE_KEY);
+
+        return is_array($envelope) ? $envelope : null;
+    }
+
+    /**
+     * hasEnvelope returns true when the request carried envelope metadata.
+     */
+    public function hasEnvelope(): bool
+    {
+        return $this->envelope !== null;
+    }
+
+    /**
+     * applyEnvelope strips the request envelope and restores JSON key order for bulk data.
+     */
+    public function applyEnvelope(): void
+    {
+        if (!$this->hasEnvelope()) {
+            return;
+        }
+
+        // Strip the envelope so it never reaches validation or handlers.
+        $input = $this->request->except(self::ENVELOPE_KEY);
+
+        foreach ($this->envelope['orders'] ?? [] as $order) {
+            $path = $order['path'] ?? null;
+            $keys = $order['keys'] ?? null;
+
+            if (is_array($path) && is_array($keys)) {
+                $this->applyKeyOrder($input, $path, $keys);
+            }
+        }
+
+        // Write back to the bag the read path uses (JSON body for bulk requests).
+        if ($this->request->isJson()) {
+            $this->request->json()->replace($input);
+        }
+
+        $this->request->replace($input);
+    }
+
+    /**
+     * applyKeyOrder rebuilds the container at the segment path to follow the given key order.
+     */
+    protected function applyKeyOrder(array &$input, array $path, array $keys): void
+    {
+        $target = &$input;
+
+        foreach ($path as $segment) {
+            if (!is_array($target) || !array_key_exists($segment, $target)) {
+                return;
+            }
+
+            $target = &$target[$segment];
+        }
+
+        if (!is_array($target)) {
+            return;
+        }
+
+        $ordered = [];
+
+        // Manifest keys first, in order.
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $target)) {
+                $ordered[$key] = $target[$key];
+            }
+        }
+
+        // Then any keys the manifest did not cover.
+        foreach ($target as $key => $value) {
+            if (!array_key_exists($key, $ordered)) {
+                $ordered[$key] = $value;
+            }
+        }
+
+        $target = $ordered;
     }
 }

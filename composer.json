@@ -13,6 +13,10 @@
     "require": {
         "php": "^8.1"
     },
+    "require-dev": {
+        "illuminate/http": "^10.0|^11.0|^12.0",
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
     "autoload": {
         "files": [
             "src/init.php"
@@ -20,6 +24,14 @@
         "psr-4": {
             "Larajax\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Larajax\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
     },
     "extra": {
         "laravel": {
