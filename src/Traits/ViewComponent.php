@@ -28,9 +28,23 @@ trait ViewComponent
     public $controller;
 
     /**
-     * make builds the component and binds it to the current controller
+     * make builds the component from named arguments and binds it to the current controller, 
+     * or a single configuration array is also accepted
      */
-    public static function make(array $config = []): static
+    public static function make(...$config): static
+    {
+        if (count($config) === 1 && array_key_exists(0, $config) && is_array($config[0])) {
+            $config = $config[0];
+        }
+
+        return static::makeWithConfig($config);
+    }
+
+    /**
+     * makeWithConfig builds the component from a configuration array and binds
+     * it to the current controller.
+     */
+    public static function makeWithConfig(array $config = []): static
     {
         if (!app()->bound('larajax.controller')) {
             throw new Exception(
@@ -44,6 +58,22 @@ trait ViewComponent
         $instance->bindToController();
 
         return $instance;
+    }
+
+    /**
+     * makeFromNamedArgs builds the component from a make() override's defined
+     * arguments, where nulls are treated as not supplied and extra named arguments
+     * collected by the override's variadic parameter pass through as configuration.
+     */
+    protected static function makeFromNamedArgs(array $vars, array $extra): static
+    {
+        unset($vars['config']);
+
+        $config = array_filter($vars, function ($value) {
+            return $value !== null;
+        });
+
+        return static::makeWithConfig(array_merge($config, $extra));
     }
 
     /**
