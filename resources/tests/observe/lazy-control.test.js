@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { Application } from '../../src/observe/application';
 import { ControlBase } from '../../src/observe/control-base';
 
@@ -23,6 +23,37 @@ function makeControl(identifier) {
     const el = document.createElement('div');
     el.setAttribute('data-control', identifier);
     return el;
+}
+
+// Deterministic IntersectionObserver replacement, triggered via intersect()
+class FakeIntersectionObserver {
+    static instances = [];
+
+    constructor(callback) {
+        this.callback = callback;
+        this.observed = new Set();
+        FakeIntersectionObserver.instances.push(this);
+    }
+
+    observe(element) {
+        this.observed.add(element);
+    }
+
+    unobserve(element) {
+        this.observed.delete(element);
+    }
+
+    disconnect() {
+        this.observed.clear();
+    }
+
+    static intersect(element) {
+        for (const instance of FakeIntersectionObserver.instances) {
+            if (instance.observed.has(element)) {
+                instance.callback([{ target: element, isIntersecting: true }], instance);
+            }
+        }
+    }
 }
 
 function deferred() {
@@ -51,6 +82,17 @@ async function withApplication(fn) {
 }
 
 describe('Lazy controls', () => {
+    let realIntersectionObserver;
+
+    beforeAll(() => {
+        realIntersectionObserver = globalThis.IntersectionObserver;
+        globalThis.IntersectionObserver = FakeIntersectionObserver;
+    });
+
+    afterAll(() => {
+        globalThis.IntersectionObserver = realIntersectionObserver;
+    });
+
     it('imports the control once, when the first element connects', async () => {
         await withApplication(async (sandbox, application) => {
             let calls = 0;
@@ -112,6 +154,45 @@ describe('Lazy controls', () => {
             await settle();
 
             expect(el.dataset.connected).toBe('other');
+        });
+    });
+
+    it('ignores the result when the control is unloaded while loading', async () => {
+        await withApplication(async (sandbox, application) => {
+            const load = deferred();
+            application.register('lazy-unloaded', () => load.promise);
+            const el = makeControl('lazy-unloaded');
+            sandbox.appendChild(el);
+            await settle();
+
+            application.unload('lazy-unloaded');
+            load.resolve(TestControl);
+            await settle();
+
+            expect(el.dataset.connected).toBeUndefined();
+        });
+    });
+
+    it('waits for a lazy container to become visible before importing', async () => {
+        await withApplication(async (sandbox, application) => {
+            let calls = 0;
+            application.register('lazy-visible', () => {
+                calls++;
+                return Promise.resolve(TestControl);
+            });
+            const boundary = document.createElement('div');
+            boundary.setAttribute('data-lazy-controls', '');
+            const el = makeControl('lazy-visible');
+            boundary.appendChild(el);
+            sandbox.appendChild(boundary);
+            await settle();
+            expect(calls).toBe(0);
+
+            FakeIntersectionObserver.intersect(boundary);
+            await settle();
+
+            expect(calls).toBe(1);
+            expect(el.dataset.connected).toBe('test');
         });
     });
 
