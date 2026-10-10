@@ -10,6 +10,7 @@ export class Container
         this.scopeObserver = new ScopeObserver(this.element, this);
         this.scopesByIdentifier = new Multimap();
         this.modulesByIdentifier = new Map();
+        this.loadersByIdentifier = new Map();
     }
 
     get element() {
@@ -42,7 +43,16 @@ export class Container
         }
     }
 
+    registerLoader(identifier, loader) {
+        this.unloadIdentifier(identifier);
+        this.loadersByIdentifier.set(identifier, { loader, promise: null });
+        if (this.scopesByIdentifier.hasKey(identifier)) {
+            this.runLoader(identifier);
+        }
+    }
+
     unloadIdentifier(identifier) {
+        this.loadersByIdentifier.delete(identifier);
         const module = this.modulesByIdentifier.get(identifier);
         if (module) {
             this.disconnectModule(module);
@@ -76,6 +86,9 @@ export class Container
         if (module) {
             module.connectContextForScope(scope);
         }
+        else if (this.loadersByIdentifier.has(scope.identifier)) {
+            this.runLoader(scope.identifier);
+        }
     }
 
     scopeDisconnected(scope) {
@@ -84,6 +97,31 @@ export class Container
         if (module) {
             module.disconnectContextForScope(scope);
         }
+    }
+
+    // Loaders import their control once, when its first element connects
+    runLoader(identifier) {
+        const entry = this.loadersByIdentifier.get(identifier);
+        if (entry.promise) {
+            return;
+        }
+
+        entry.promise = Promise.resolve()
+            .then(() => entry.loader())
+            .then((result) => {
+                const control = result?.default || result;
+                if (typeof control !== 'function' || !('shouldLoad' in control)) {
+                    throw new Error(`Loader for control "${identifier}" did not return a control class`);
+                }
+
+                // Skip if the identifier was registered again or unloaded meanwhile
+                if (this.loadersByIdentifier.get(identifier) === entry) {
+                    this.application.register(identifier, control);
+                }
+            })
+            .catch((error) => {
+                this.handleError(error, `Error loading control "${identifier}"`, { identifier });
+            });
     }
 
     // Modules

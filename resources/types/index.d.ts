@@ -1,6 +1,8 @@
 declare module 'larajax';
 
 type Constructor<T> = new (...args: any[]) => T;
+type ControlModule = Constructor<ControlBase> | { default: Constructor<ControlBase> };
+type ControlLoader = () => ControlModule | Promise<ControlModule>;
 
 type ResponseCallback<T = DataResponse> = (data: T, responseCode: number, xhr: XMLHttpRequest) => void | Promise<void>;
 
@@ -381,7 +383,7 @@ export interface AjaxExtrasNamespace {
 }
 
 export interface AjaxObserveNamespace {
-    registerControl(id: string, control: Constructor<ControlBase>): void;
+    registerControl(id: string, control: Constructor<ControlBase> | ControlLoader): void;
     importControl(id: string): Constructor<ControlBase> | undefined;
     observeControl(element: HTMLElement, id: string): ControlBase | null;
     fetchControl(element: HTMLElement | string, identifier?: string): ControlBase | null;
@@ -411,7 +413,7 @@ declare function values(form: HTMLFormElement): Record<string, unknown>;
 declare function flashMsg(options: FlashMessageOptions): number | void;
 declare function useTurbo(): boolean;
 declare function visit(location: string, options?: TurboVisitOptions): void;
-declare function registerControl(id: string, control: Constructor<ControlBase>): void;
+declare function registerControl(id: string, control: Constructor<ControlBase> | ControlLoader): void;
 declare function importControl(id: string): Constructor<ControlBase> | undefined;
 declare function observeControl(element: HTMLElement, id: string): ControlBase | null;
 declare function fetchControl(element: HTMLElement | string, identifier?: string): ControlBase | null;

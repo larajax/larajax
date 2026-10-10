@@ -34,6 +34,12 @@ export class Application
     }
 
     register(identifier, controlConstructor) {
+        // A function that is not a control imports one when first needed
+        if (typeof controlConstructor === 'function' && !('shouldLoad' in controlConstructor)) {
+            this.container.registerLoader(identifier, controlConstructor);
+            return;
+        }
+
         this.load({ identifier, controlConstructor });
     }
 
