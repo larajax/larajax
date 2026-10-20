@@ -4393,6 +4393,7 @@ window['${id}']();`;
       this.scopeObserver = new ScopeObserver(this.element, this);
       this.scopesByIdentifier = new Multimap();
       this.modulesByIdentifier = /* @__PURE__ */ new Map();
+      this.loadersByIdentifier = /* @__PURE__ */ new Map();
     }
     get element() {
       return this.application.element;
@@ -4418,7 +4419,15 @@ window['${id}']();`;
         afterLoad.call(definition.controlConstructor, definition.identifier, this.application);
       }
     }
+    registerLoader(identifier, loader) {
+      this.unloadIdentifier(identifier);
+      this.loadersByIdentifier.set(identifier, { loader, promise: null });
+      if (this.scopesByIdentifier.hasKey(identifier)) {
+        this.runLoader(identifier);
+      }
+    }
     unloadIdentifier(identifier) {
+      this.loadersByIdentifier.delete(identifier);
       const module = this.modulesByIdentifier.get(identifier);
       if (module) {
         this.disconnectModule(module);
@@ -4446,6 +4455,8 @@ window['${id}']();`;
       const module = this.modulesByIdentifier.get(scope.identifier);
       if (module) {
         module.connectContextForScope(scope);
+      } else if (this.loadersByIdentifier.has(scope.identifier)) {
+        this.runLoader(scope.identifier);
       }
     }
     scopeDisconnected(scope) {
@@ -4454,6 +4465,24 @@ window['${id}']();`;
       if (module) {
         module.disconnectContextForScope(scope);
       }
+    }
+    // Loaders import their control once, when its first element connects
+    runLoader(identifier) {
+      const entry = this.loadersByIdentifier.get(identifier);
+      if (entry.promise) {
+        return;
+      }
+      entry.promise = Promise.resolve().then(() => entry.loader()).then((result) => {
+        const control = result?.default || result;
+        if (typeof control !== "function" || !("shouldLoad" in control)) {
+          throw new Error(`Loader for control "${identifier}" did not return a control class`);
+        }
+        if (this.loadersByIdentifier.get(identifier) === entry) {
+          this.application.register(identifier, control);
+        }
+      }).catch((error) => {
+        this.handleError(error, `Error loading control "${identifier}"`, { identifier });
+      });
     }
     // Modules
     connectModule(module) {
@@ -4496,6 +4525,10 @@ window['${id}']();`;
       }
     }
     register(identifier, controlConstructor) {
+      if (typeof controlConstructor === "function" && !("shouldLoad" in controlConstructor)) {
+        this.container.registerLoader(identifier, controlConstructor);
+        return;
+      }
       this.load({ identifier, controlConstructor });
     }
     observe(element, identifier) {
@@ -5353,13 +5386,17 @@ window['${id}']();`;
         this.render(() => {
           const page = Page.fromHTMLString(response);
           if (request.failed && !page.isNativeError()) {
-            this.controller.render({ error: response }, this.performScroll);
-            this.adapter.visitRendered(this);
-            this.fail();
+            this.controller.render({ error: response }, () => {
+              this.performScroll();
+              this.adapter.visitRendered(this);
+              this.fail();
+            });
           } else {
-            this.controller.render({ page }, this.performScroll);
-            this.adapter.visitRendered(this);
-            this.complete();
+            this.controller.render({ page }, () => {
+              this.performScroll();
+              this.adapter.visitRendered(this);
+              this.complete();
+            });
           }
         });
       }
