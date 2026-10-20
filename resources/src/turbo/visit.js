@@ -123,15 +123,20 @@ export class Visit
             this.render(() => {
                 const page = Page.fromHTMLString(response);
 
+                // Finish inside the render callback, since view transitions swap the body later
                 if (request.failed && !page.isNativeError()) {
-                    this.controller.render({ error: response }, this.performScroll);
-                    this.adapter.visitRendered(this);
-                    this.fail();
+                    this.controller.render({ error: response }, () => {
+                        this.performScroll();
+                        this.adapter.visitRendered(this);
+                        this.fail();
+                    });
                 }
                 else {
-                    this.controller.render({ page }, this.performScroll);
-                    this.adapter.visitRendered(this);
-                    this.complete();
+                    this.controller.render({ page }, () => {
+                        this.performScroll();
+                        this.adapter.visitRendered(this);
+                        this.complete();
+                    });
                 }
             });
         }

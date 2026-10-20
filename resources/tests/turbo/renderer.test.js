@@ -114,6 +114,23 @@ describe('Renderer', () => {
             expect(transitionCallbackCalled).toBe(true);
         });
 
+        it('runs the callback only when the view transition swaps the body', () => {
+            let updateCallback = null;
+            document.startViewTransition = (cb) => {
+                updateCallback = cb;
+                return { finished: new Promise(() => {}) };
+            };
+            const delegate = createDelegate({ viewTransitionEnabled: () => true });
+            const renderer = createRenderer(delegate);
+
+            let callbackCalled = false;
+            renderer.renderView(() => { callbackCalled = true; });
+            expect(callbackCalled).toBe(false);
+
+            updateCallback();
+            expect(callbackCalled).toBe(true);
+        });
+
         it('calls setViewTransitionFinished with transition.finished promise', () => {
             const finishedPromise = Promise.resolve();
             document.startViewTransition = (cb) => {

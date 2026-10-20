@@ -266,4 +266,52 @@ describe('Visit', () => {
             expect(visit.progress).toBe(0.5);
         });
     });
+
+    describe('loadResponse', () => {
+        function nextFrame() {
+            return new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+
+        function startVisitWithResponse(request = {}) {
+            const visit = new Visit(controller, location, 'advance');
+            visit.start();
+            visit.request = request;
+            visit.response = '<html><head></head><body></body></html>';
+            return visit;
+        }
+
+        it('completes the visit only once the render callback runs', async () => {
+            let renderCallback = null;
+            let rendered = false;
+            controller.render = (options, callback) => { renderCallback = callback; };
+            controller.adapter.visitRendered = () => { rendered = true; };
+
+            const visit = startVisitWithResponse();
+            visit.loadResponse();
+            await nextFrame();
+
+            expect(renderCallback).not.toBeNull();
+            expect(rendered).toBe(false);
+            expect(visit.state).toBe(VisitState.started);
+
+            renderCallback();
+            expect(rendered).toBe(true);
+            expect(visit.scrolled).toBe(true);
+            expect(visit.state).toBe(VisitState.completed);
+        });
+
+        it('fails the visit only once the error render callback runs', async () => {
+            let renderCallback = null;
+            controller.render = (options, callback) => { renderCallback = callback; };
+
+            const visit = startVisitWithResponse({ failed: true });
+            visit.loadResponse();
+            await nextFrame();
+
+            expect(visit.state).toBe(VisitState.started);
+
+            renderCallback();
+            expect(visit.state).toBe(VisitState.failed);
+        });
+    });
 });
