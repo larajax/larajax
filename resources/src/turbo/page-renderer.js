@@ -77,12 +77,14 @@ export class PageRenderer extends Renderer
         }
 
         var self = this,
-            loadEvent = function() {
+            settleEvent = function() {
                 self.delegate.decrementPendingAsset();
-                element.removeEventListener('load', loadEvent);
+                element.removeEventListener('load', settleEvent);
+                element.removeEventListener('error', settleEvent);
             };
 
-        element.addEventListener('load', loadEvent);
+        element.addEventListener('load', settleEvent);
+        element.addEventListener('error', settleEvent);
         this.delegate.incrementPendingAsset();
         return element;
     }

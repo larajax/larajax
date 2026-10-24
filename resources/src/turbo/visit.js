@@ -123,7 +123,6 @@ export class Visit
             this.render(() => {
                 const page = Page.fromHTMLString(response);
 
-                // Finish inside the render callback, since view transitions swap the body later
                 if (request.failed && !page.isNativeError()) {
                     this.controller.render({ error: response }, () => {
                         this.performScroll();
