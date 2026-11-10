@@ -76,6 +76,11 @@ export class PageRenderer extends Renderer
             return element;
         }
 
+        this.delegate.incrementPendingAsset();
+        return this.settlePendingAssetOnLoadOnce(element);
+    }
+
+    settlePendingAssetOnLoadOnce(element) {
         var self = this,
             settleEvent = function() {
                 self.delegate.decrementPendingAsset();
@@ -85,7 +90,6 @@ export class PageRenderer extends Renderer
 
         element.addEventListener('load', settleEvent);
         element.addEventListener('error', settleEvent);
-        this.delegate.incrementPendingAsset();
         return element;
     }
 
@@ -126,16 +130,27 @@ export class PageRenderer extends Renderer
     activateNewBodyScriptElements() {
         for (const inertScriptElement of this.getNewBodyScriptElements()) {
             const activatedScriptElement = this.createScriptElement(inertScriptElement);
-            if (activatedScriptElement.getAttribute('type') === 'module') {
-                activatedScriptElement.textContent += "\n" + "dispatchEvent(new CustomEvent('turbo:module-loaded'));";
+            if (isPendingModuleScript(inertScriptElement)) {
+                this.settlePendingModuleScriptOnce(activatedScriptElement);
             }
             replaceElementWithElement(inertScriptElement, activatedScriptElement);
         }
     }
 
+    // The browser ignores the text of a script with a src, so external modules
+    // settle on load instead, which still fires when the module is already cached
+    settlePendingModuleScriptOnce(element) {
+        if (element.hasAttribute('src')) {
+            this.settlePendingAssetOnLoadOnce(element);
+        }
+        else {
+            element.textContent += "\n" + "dispatchEvent(new CustomEvent('turbo:module-loaded'));";
+        }
+    }
+
     countNewBodyModuleScripts() {
         for (const element of this.getNewBodyScriptElements()) {
-            if (element.getAttribute('type') === 'module') {
+            if (isPendingModuleScript(element)) {
                 this.delegate.incrementPendingAsset();
             }
         }
@@ -175,6 +190,11 @@ export class PageRenderer extends Renderer
     getNewBodyScriptElements() {
         return array(this.newBody.querySelectorAll('script'));
     }
+}
+
+function isPendingModuleScript(element) {
+    return element.getAttribute('type') === 'module' &&
+        element.getAttribute('data-turbo-eval') !== 'false';
 }
 
 function createPlaceholderForPermanentElement(permanentElement) {
