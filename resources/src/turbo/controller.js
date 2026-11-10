@@ -38,10 +38,6 @@ export class Controller
             this.observeInlineScripts();
         };
 
-        this.moduleLoaded = () => {
-            this.decrementPendingAsset();
-        };
-
         this.clickCaptured = () => {
             removeEventListener('click', this.clickBubbled, false);
             addEventListener('click', this.clickBubbled, false);
@@ -67,7 +63,6 @@ export class Controller
         if (Controller.supported && !this.started) {
             addEventListener('click', this.clickCaptured, true);
             addEventListener('DOMContentLoaded', this.pageLoaded, false);
-            addEventListener('turbo:module-loaded', this.moduleLoaded, false);
             this.startHistory();
             this.scrollManager.start();
             this.started = true;
@@ -93,7 +88,6 @@ export class Controller
         if (this.started) {
             removeEventListener('click', this.clickCaptured, true);
             removeEventListener('DOMContentLoaded', this.pageLoaded, false);
-            removeEventListener('turbo:module-loaded', this.moduleLoaded, false);
             this.scrollManager.stop();
             this.stopHistory();
             this.started = false;
@@ -224,8 +218,26 @@ export class Controller
     }
 
     // Pending asset management
-    incrementPendingAsset() {
+    beginPendingAssets() {
+        // Each render starts over, so an asset a superseded render never settled
+        // cannot hold back this one, and the render is held until its visit completes
+        this.pageIsReady = false;
+        this.pendingAssets = 0;
+        this.pendingAssetsRender = {};
+        this.settleVisitCompleted = this.trackPendingAsset();
+    }
+
+    trackPendingAsset() {
+        const render = this.pendingAssetsRender;
+        let settled = false;
         this.pendingAssets++;
+
+        return () => {
+            if (!settled && render === this.pendingAssetsRender) {
+                settled = true;
+                this.decrementPendingAsset();
+            }
+        };
     }
 
     decrementPendingAsset() {
@@ -384,11 +396,10 @@ export class Controller
 
         this.notifyApplicationAfterPageLoad(visit.getTimingMetrics());
 
-        if (this.pendingAssets === 0) {
-            this.pageIsReady = true;
-            this.notifyApplicationAfterPageAndScriptsLoad();
-            this.notifyApplicationAfterLoadScripts();
-        }
+        // Releases the render hold, page:loaded follows once nothing else is pending
+        const settle = this.settleVisitCompleted || this.trackPendingAsset();
+        this.settleVisitCompleted = null;
+        settle();
     }
 
     clickEventIsSignificant(event) {

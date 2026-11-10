@@ -263,6 +263,88 @@ describe('Controller', () => {
         });
     });
 
+    describe('pending assets', () => {
+        const mockVisit = { getTimingMetrics: () => ({}) };
+        let events;
+        let listeners;
+
+        beforeEach(() => {
+            events = [];
+            listeners = ['page:load', 'page:loaded', 'page:updated'].map((name) => {
+                const listener = () => events.push(name);
+                document.addEventListener(name, listener);
+                return [name, listener];
+            });
+        });
+
+        afterEach(() => {
+            listeners.forEach(([name, listener]) => document.removeEventListener(name, listener));
+        });
+
+        it('fires page:loaded when the visit completes with nothing pending', () => {
+            controller.beginPendingAssets();
+            controller.visitCompleted(mockVisit);
+
+            expect(events).toEqual(['page:load', 'page:loaded', 'page:updated']);
+            expect(controller.pageIsReady).toBe(true);
+        });
+
+        it('waits for the visit to complete even when assets settle first', () => {
+            controller.beginPendingAssets();
+            const settle = controller.trackPendingAsset();
+
+            settle();
+            expect(events).toEqual([]);
+            expect(controller.pageIsReady).toBe(false);
+
+            controller.visitCompleted(mockVisit);
+            expect(events).toEqual(['page:load', 'page:loaded', 'page:updated']);
+        });
+
+        it('waits for assets still pending after the visit completes', () => {
+            controller.beginPendingAssets();
+            const settle = controller.trackPendingAsset();
+
+            controller.visitCompleted(mockVisit);
+            expect(events).toEqual(['page:load']);
+
+            settle();
+            expect(events).toEqual(['page:load', 'page:loaded', 'page:updated']);
+        });
+
+        it('settles each asset only once', () => {
+            controller.beginPendingAssets();
+            const settleFirst = controller.trackPendingAsset();
+            controller.trackPendingAsset();
+
+            controller.visitCompleted(mockVisit);
+            settleFirst();
+            settleFirst();
+
+            expect(events).toEqual(['page:load']);
+            expect(controller.pendingAssets).toBe(1);
+        });
+
+        it('does not let a superseded render hold back the next one', () => {
+            controller.beginPendingAssets();
+            const settleStale = controller.trackPendingAsset();
+
+            controller.beginPendingAssets();
+            controller.visitCompleted(mockVisit);
+            expect(events).toEqual(['page:load', 'page:loaded', 'page:updated']);
+
+            settleStale();
+            expect(controller.pendingAssets).toBe(0);
+            expect(events.length).toBe(3);
+        });
+
+        it('fires page:loaded for a visit that completes without a render', () => {
+            controller.visitCompleted(mockVisit);
+
+            expect(events).toEqual(['page:load', 'page:loaded', 'page:updated']);
+        });
+    });
+
     describe('inline script tracking', () => {
         it('returns false for new scripts', () => {
             const el = document.createElement('script');

@@ -1,5 +1,5 @@
 import { Renderer } from "./renderer";
-import { array } from "../util";
+import { array, uuid } from "../util";
 
 export class PageRenderer extends Renderer
 {
@@ -19,8 +19,7 @@ export class PageRenderer extends Renderer
 
     render(callback) {
         if (this.shouldRender()) {
-            this.delegate.pageIsReady = false;
-            this.countNewBodyModuleScripts();
+            this.delegate.beginPendingAssets();
             this.mergeHead();
             this.renderView(() => {
                 this.replaceBody();
@@ -62,35 +61,29 @@ export class PageRenderer extends Renderer
     }
 
     copyNewHeadScriptElements() {
-        for (const element of this.getNewHeadScriptElements()) {
-            document.head.appendChild(
-                this.bindPendingAssetLoadedEventOnce(
-                    this.createScriptElement(element)
-                )
-            );
+        for (const inertScriptElement of this.getNewHeadScriptElements()) {
+            const activatedScriptElement = this.createScriptElement(inertScriptElement);
+            document.head.appendChild(activatedScriptElement);
+            if (activatedScriptElement !== inertScriptElement) {
+                this.bindPendingScriptElement(activatedScriptElement);
+            }
         }
     }
 
-    bindPendingAssetLoadedEventOnce(element) {
-        if (!element.hasAttribute('src')) {
-            return element;
+    // Holds page:loaded until the script has run, for each script a full page
+    // load would run before DOMContentLoaded
+    bindPendingScriptElement(element) {
+        if (!isPendingScript(element)) {
+            return;
         }
 
-        this.delegate.incrementPendingAsset();
-        return this.settlePendingAssetOnLoadOnce(element);
-    }
-
-    settlePendingAssetOnLoadOnce(element) {
-        var self = this,
-            settleEvent = function() {
-                self.delegate.decrementPendingAsset();
-                element.removeEventListener('load', settleEvent);
-                element.removeEventListener('error', settleEvent);
-            };
-
-        element.addEventListener('load', settleEvent);
-        element.addEventListener('error', settleEvent);
-        return element;
+        const settle = this.delegate.trackPendingAsset();
+        if (element.hasAttribute('src')) {
+            settleOnLoadOnce(element, settle);
+        }
+        else {
+            insertModuleLoadedSignal(element, settle);
+        }
     }
 
     removeCurrentHeadProvisionalElements() {
@@ -130,28 +123,9 @@ export class PageRenderer extends Renderer
     activateNewBodyScriptElements() {
         for (const inertScriptElement of this.getNewBodyScriptElements()) {
             const activatedScriptElement = this.createScriptElement(inertScriptElement);
-            if (isPendingModuleScript(inertScriptElement)) {
-                this.settlePendingModuleScriptOnce(activatedScriptElement);
-            }
-            replaceElementWithElement(inertScriptElement, activatedScriptElement);
-        }
-    }
-
-    // The browser ignores the text of a script with a src, so external modules
-    // settle on load instead, which still fires when the module is already cached
-    settlePendingModuleScriptOnce(element) {
-        if (element.hasAttribute('src')) {
-            this.settlePendingAssetOnLoadOnce(element);
-        }
-        else {
-            element.textContent += "\n" + "dispatchEvent(new CustomEvent('turbo:module-loaded'));";
-        }
-    }
-
-    countNewBodyModuleScripts() {
-        for (const element of this.getNewBodyScriptElements()) {
-            if (isPendingModuleScript(element)) {
-                this.delegate.incrementPendingAsset();
+            if (activatedScriptElement !== inertScriptElement) {
+                replaceElementWithElement(inertScriptElement, activatedScriptElement);
+                this.bindPendingScriptElement(activatedScriptElement);
             }
         }
     }
@@ -192,9 +166,58 @@ export class PageRenderer extends Renderer
     }
 }
 
-function isPendingModuleScript(element) {
-    return element.getAttribute('type') === 'module' &&
-        element.getAttribute('data-turbo-eval') !== 'false';
+// Modules and external classic scripts, unless async, since DOMContentLoaded
+// doesn't wait for those either
+function isPendingScript(element) {
+    const type = (element.getAttribute('type') || '').trim().toLowerCase();
+    if (element.hasAttribute('async')) {
+        return false;
+    }
+
+    if (type === 'module') {
+        return true;
+    }
+
+    return element.hasAttribute('src') &&
+        !element.hasAttribute('nomodule') &&
+        (type === '' || /^(text|application)\/(x-)?(java|ecma)script$/.test(type));
+}
+
+// Load fires even when the browser reuses a module it has already evaluated
+function settleOnLoadOnce(element, settle) {
+    const settleEvent = () => {
+        element.removeEventListener('load', settleEvent);
+        element.removeEventListener('error', settleEvent);
+        settle();
+    };
+
+    element.addEventListener('load', settleEvent);
+    element.addEventListener('error', settleEvent);
+}
+
+// Inline modules fire no load event, so a separate module signals instead. It runs
+// after this one even when this one throws, and like DOMContentLoaded it doesn't
+// wait for top-level await to finish
+function insertModuleLoadedSignal(element, settle) {
+    const id = uuid();
+    const signalElement = document.createElement('script');
+    const settleEvent = (event) => {
+        if (event.detail === id) {
+            removeEventListener('turbo:module-loaded', settleEvent);
+            signalElement.remove();
+            settle();
+        }
+    };
+
+    signalElement.setAttribute('type', 'module');
+    signalElement.async = false;
+    if (element.nonce) {
+        signalElement.nonce = element.nonce;
+    }
+    signalElement.textContent = "dispatchEvent(new CustomEvent('turbo:module-loaded', { detail: '" + id + "' }));";
+
+    addEventListener('turbo:module-loaded', settleEvent);
+    element.parentNode.insertBefore(signalElement, element.nextSibling);
 }
 
 function createPlaceholderForPermanentElement(permanentElement) {
