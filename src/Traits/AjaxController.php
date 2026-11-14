@@ -7,6 +7,7 @@ use Larajax\Exceptions\HandlerNotFound;
 use Larajax\Exceptions\ComponentNotFound;
 use Larajax\Exceptions\HandlerNameInvalid;
 use Larajax\Classes\AjaxHelpers;
+use Larajax\Classes\AjaxRequest;
 use Larajax\Classes\AjaxResponse;
 use Larajax\Classes\ComponentContainer;
 use Larajax\Contracts\ViewComponentInterface;
@@ -129,7 +130,7 @@ trait AjaxController
             return;
         }
 
-        if (!preg_match('/^on[A-Z][a-zA-Z]*$/', $handler)) {
+        if (!AjaxRequest::isValidHandlerName($handler)) {
             throw new HandlerNameInvalid("[{$handler}] is an invalid AJAX handler name");
         }
 

@@ -90,11 +90,19 @@ class AjaxRequest
             return false;
         }
 
-        if (!preg_match('/^(?:\w+\:{2})?on[A-Z]{1}[\w+]*$/', $this->handler)) {
+        if (!static::isValidHandlerName($this->handler)) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * isValidHandlerName returns true if the name is a handler, eg: onSave or alias::onSave
+     */
+    public static function isValidHandlerName(string $name): bool
+    {
+        return (bool) preg_match('/^(?:\w+::)?on[A-Z]\w*$/D', $name);
     }
 
     /**
