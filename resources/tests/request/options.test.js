@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { Options } from '../../src/request/options';
+import { registerTurbo } from '../../src/util/turbo';
 
 describe('Options', () => {
     describe('constructor validation', () => {
@@ -25,6 +26,10 @@ describe('Options', () => {
     });
 
     describe('getRequestOptions', () => {
+        afterEach(() => {
+            registerTurbo(null);
+        });
+
         it('returns POST method', () => {
             const result = Options.fetch('onTest', {});
             expect(result.method).toBe('POST');
@@ -33,6 +38,16 @@ describe('Options', () => {
         it('uses window.location.href when no url option', () => {
             const result = Options.fetch('onTest', {});
             expect(result.url).toBe(window.location.href);
+        });
+
+        it('uses the page URL from the turbo router when enabled', () => {
+            registerTurbo({
+                isEnabled: () => true,
+                controller: { getPageUrl: () => 'http://localhost/list' }
+            });
+
+            const result = Options.fetch('onTest', {});
+            expect(result.url).toBe('http://localhost/list');
         });
 
         it('uses custom url option', () => {

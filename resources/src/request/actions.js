@@ -2,7 +2,7 @@ import { AssetManager } from "./asset-manager";
 import { DomPatcher, resolveSelectorResponse } from "./dom-patcher";
 import { getReferrerUrl } from "../util/referrer";
 import { decoratePromiseProxy } from "../util/promise";
-import { isTurboEnabled, turboVisit } from "../util/turbo";
+import { isTurboEnabled, turboVisit, getPageUrl } from "../util/turbo";
 
 export class Actions
 {
@@ -428,7 +428,8 @@ export class Actions
 
     // Custom function, adds query data to the current URL
     applyQueryToUrl(queryData) {
-        const searchParams = new URLSearchParams(window.location.search);
+        const pageUrl = new URL(getPageUrl());
+        const searchParams = new URLSearchParams(pageUrl.search);
         for (const key of Object.keys(queryData)) {
             const value = queryData[key];
             if (Array.isArray(value)) {
@@ -445,7 +446,7 @@ export class Actions
             }
         }
 
-        var newUrl = window.location.pathname,
+        var newUrl = pageUrl.pathname,
             queryStr = searchParams.toString();
 
         if (queryStr) {

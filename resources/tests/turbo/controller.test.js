@@ -9,6 +9,13 @@ mock.module('../../src/extras/progress-bar', () => ({
     }
 }));
 
+mock.module('../../src/util/http-request', () => ({
+    HttpRequest: class {
+        send() {}
+        abort() {}
+    }
+}));
+
 import { Controller } from '../../src/turbo/controller';
 import { Location } from '../../src/turbo/location';
 
@@ -342,6 +349,57 @@ describe('Controller', () => {
             controller.visitCompleted(mockVisit);
 
             expect(events).toEqual(['page:load', 'page:loaded', 'page:updated']);
+        });
+    });
+
+    describe('page URL', () => {
+        beforeEach(() => {
+            window.happyDOM.setURL('http://localhost/list');
+            controller.location = Location.currentLocation;
+            controller.view.render = () => {};
+        });
+
+        afterEach(() => {
+            window.happyDOM.setURL('about:blank');
+        });
+
+        it('follows the browser URL when no visit is loading', () => {
+            expect(controller.getPageUrl()).toBe('http://localhost/list');
+        });
+
+        it('keeps the outgoing page URL while a visit loads', () => {
+            controller.startVisit(new Location('http://localhost/update/1'), 'advance', {});
+
+            expect(window.location.href).toBe('http://localhost/update/1');
+            expect(controller.getPageUrl()).toBe('http://localhost/list');
+        });
+
+        it('switches to the new URL once the response renders', () => {
+            controller.startVisit(new Location('http://localhost/update/1'), 'advance', {});
+            controller.render({}, () => {});
+
+            expect(controller.getPageUrl()).toBe('http://localhost/update/1');
+        });
+
+        it('keeps the first outgoing URL when a visit replaces a loading one', () => {
+            controller.startVisit(new Location('http://localhost/update/1'), 'advance', {});
+            controller.startVisit(new Location('http://localhost/update/2'), 'advance', {});
+
+            expect(controller.getPageUrl()).toBe('http://localhost/list');
+        });
+
+        it('follows a same page visit that replaces a loading one', () => {
+            controller.startVisit(new Location('http://localhost/update/1'), 'advance', {});
+            controller.startVisit(new Location('http://localhost/list?page=2'), 'swap', {});
+
+            expect(controller.getPageUrl()).toBe('http://localhost/list?page=2');
+        });
+
+        it('keeps the outgoing page URL during a history restore', () => {
+            window.happyDOM.setURL('http://localhost/dashboard');
+            controller.historyPoppedToLocationWithRestorationIdentifier(Location.currentLocation, 'restore-1', 'back');
+
+            expect(controller.getPageUrl()).toBe('http://localhost/list');
         });
     });
 

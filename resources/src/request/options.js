@@ -1,3 +1,5 @@
+import { getPageUrl } from "../util/turbo";
+
 export class Options
 {
     constructor(handler, options) {
@@ -25,7 +27,7 @@ export class Options
     getRequestOptions() {
         return {
             method: 'POST',
-            url: this.options.url ? this.options.url : window.location.href,
+            url: this.options.url ? this.options.url : getPageUrl(),
             headers: this.buildHeaders()
         };
     }

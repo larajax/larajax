@@ -26,6 +26,7 @@ export class Controller
         this.uniqueInlineScriptsLimit = 100;
         this.currentVisit = null;
         this.historyVisit = null;
+        this.outgoingLocation = null;
         this.pageIsReady = false;
         this.viewTransitionFinished = null;
 
@@ -165,6 +166,13 @@ export class Controller
         }
     }
 
+    // URL of the page on screen, which trails the address bar while a visit loads
+    getPageUrl() {
+        return this.outgoingLocation
+            ? this.outgoingLocation.absoluteURL
+            : window.location.href;
+    }
+
     pushHistoryWithLocationAndRestorationIdentifier(locatable, restorationIdentifier) {
         this.historyVisit = this.currentVisit;
         this.location = Location.wrap(locatable);
@@ -181,6 +189,7 @@ export class Controller
     // History delegate
     historyPoppedToLocationWithRestorationIdentifier(location, restorationIdentifier, direction) {
         if (this.enabled) {
+            this.holdOutgoingLocation(this.location);
             this.location = location;
             this.restorationIdentifier = restorationIdentifier;
             this.takeOverScrollRestoration();
@@ -251,6 +260,7 @@ export class Controller
 
     // View
     render(options, callback) {
+        this.outgoingLocation = null;
         this.view.render(options, callback);
     }
 
@@ -369,8 +379,24 @@ export class Controller
         this.currentVisit = this.createVisit(location, action, properties);
         this.currentVisit.scrolled = !this.useScroll;
         this.markVisitDirection(action, properties.direction);
+
+        // A same page visit keeps the page on screen, others leave it there until the render
+        if (this.currentVisit.isSamePage) {
+            this.outgoingLocation = null;
+        }
+        else {
+            this.holdOutgoingLocation(Location.currentLocation);
+        }
+
         this.currentVisit.start();
         this.notifyApplicationAfterVisitingLocation(location);
+    }
+
+    // Keeps the first location, since a visit that replaces another leaves the same page on screen
+    holdOutgoingLocation(location) {
+        if (!this.outgoingLocation) {
+            this.outgoingLocation = location;
+        }
     }
 
     createVisit(location, action, properties) {

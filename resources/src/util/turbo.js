@@ -23,3 +23,7 @@ export function getTurboController() {
 export function turboPageReady() {
     return _turboProvider?.pageReady() ?? null;
 }
+
+export function getPageUrl() {
+    return isTurboEnabled() ? getTurboController().getPageUrl() : window.location.href;
+}
