@@ -66,6 +66,18 @@ describe('getReferrerUrl', () => {
             expect(getReferrerUrl('http://localhost/posts')).toBeNull();
         });
 
+        it('ignores the last visit when the fallback has its own query', () => {
+            setLastVisit('http://localhost/posts?page=2');
+
+            expect(getReferrerUrl('http://localhost/posts?tab=archived')).toBeNull();
+        });
+
+        it('treats a fallback with an empty query as having none', () => {
+            setLastVisit('http://localhost/posts?page=2');
+
+            expect(getReferrerUrl('http://localhost/posts?')).toBe('http://localhost/posts?page=2');
+        });
+
         it('ignores a fallback on another origin', () => {
             setLastVisit('http://localhost/posts?page=2');
 

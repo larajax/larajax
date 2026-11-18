@@ -28,7 +28,7 @@ describe('Actions', () => {
     describe('handleRedirectResponse', () => {
         let visits;
 
-        function redirectWithLastVisit(lastVisitUrl, options) {
+        function redirectWithLastVisit(lastVisitUrl, options, redirectUrl = 'http://localhost/posts') {
             registerTurbo({
                 isEnabled: () => true,
                 controller: { getLastVisitUrl: () => lastVisitUrl },
@@ -40,7 +40,7 @@ describe('Actions', () => {
                 notifyApplicationBeforeRedirect: () => ({ defaultPrevented: false })
             };
 
-            new Actions(delegate, {}, options).handleRedirectResponse('http://localhost/posts');
+            new Actions(delegate, {}, options).handleRedirectResponse(redirectUrl);
         }
 
         beforeEach(() => {
@@ -63,6 +63,16 @@ describe('Actions', () => {
             redirectWithLastVisit('http://localhost/posts/create', { browserRedirectBack: true });
 
             expect(visits).toEqual(['http://localhost/posts']);
+        });
+
+        it('follows a redirect that carries its own query', () => {
+            redirectWithLastVisit(
+                'http://localhost/posts?page=2',
+                { browserRedirectBack: true },
+                'http://localhost/posts?tab=archived'
+            );
+
+            expect(visits).toEqual(['http://localhost/posts?tab=archived']);
         });
 
         it('follows the redirect when going back is not requested', () => {

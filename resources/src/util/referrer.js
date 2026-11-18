@@ -2,7 +2,7 @@ import { isTurboEnabled, getTurboController } from "./turbo";
 
 /**
  * getReferrerUrl returns the last visited URL, and when a fallback URL
- * is given, only if it is the same page as the fallback
+ * is given, only if it is the same page and the fallback has no query
  */
 export function getReferrerUrl(fallbackUrl = null) {
     const url = isTurboEnabled()
@@ -13,7 +13,7 @@ export function getReferrerUrl(fallbackUrl = null) {
         return null;
     }
 
-    if (fallbackUrl && !isSamePage(url, fallbackUrl)) {
+    if (fallbackUrl && (hasQuery(fallbackUrl) || !isSamePage(url, fallbackUrl))) {
         return null;
     }
 
@@ -41,6 +41,10 @@ function getReferrerFromSameOrigin() {
     }
     catch (e) {
     }
+}
+
+function hasQuery(url) {
+    return new URL(url, window.location.href).search !== '';
 }
 
 function isSamePage(url, otherUrl) {
