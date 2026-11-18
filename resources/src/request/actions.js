@@ -293,7 +293,7 @@ export class Actions
         }
 
         if (this.options.browserRedirectBack) {
-            href = getReferrerUrl() || href;
+            href = getReferrerUrl(href) || href;
         }
 
         if (isTurboEnabled()) {
