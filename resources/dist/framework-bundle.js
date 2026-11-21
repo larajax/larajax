@@ -340,6 +340,31 @@
     }
   };
 
+  // src/util/turbo.js
+  var _turboProvider = null;
+  function registerTurbo(turbo) {
+    _turboProvider = turbo;
+  }
+  function isTurboEnabled() {
+    return _turboProvider?.isEnabled() ?? false;
+  }
+  function turboVisit(url, options) {
+    if (_turboProvider) {
+      _turboProvider.visit(url, options);
+      return true;
+    }
+    return false;
+  }
+  function getTurboController() {
+    return _turboProvider?.controller ?? null;
+  }
+  function turboPageReady() {
+    return _turboProvider?.pageReady() ?? null;
+  }
+  function getPageUrl() {
+    return isTurboEnabled() ? getTurboController().getPageUrl() : window.location.href;
+  }
+
   // src/request/options.js
   var Options = class {
     constructor(handler, options) {
@@ -362,7 +387,7 @@
     getRequestOptions() {
       return {
         method: "POST",
-        url: this.options.url ? this.options.url : window.location.href,
+        url: this.options.url ? this.options.url : getPageUrl(),
         headers: this.buildHeaders()
       };
     }
@@ -717,32 +742,13 @@ window['${id}']();`;
     });
   }
 
-  // src/util/turbo.js
-  var _turboProvider = null;
-  function registerTurbo(turbo) {
-    _turboProvider = turbo;
-  }
-  function isTurboEnabled() {
-    return _turboProvider?.isEnabled() ?? false;
-  }
-  function turboVisit(url, options) {
-    if (_turboProvider) {
-      _turboProvider.visit(url, options);
-      return true;
-    }
-    return false;
-  }
-  function getTurboController() {
-    return _turboProvider?.controller ?? null;
-  }
-  function turboPageReady() {
-    return _turboProvider?.pageReady() ?? null;
-  }
-
   // src/util/referrer.js
-  function getReferrerUrl() {
+  function getReferrerUrl(fallbackUrl = null) {
     const url = isTurboEnabled() ? getTurboController().getLastVisitUrl() : getReferrerFromSameOrigin();
-    if (!url || isSameBaseUrl(url)) {
+    if (!url || isSamePage(url, window.location.href)) {
+      return null;
+    }
+    if (fallbackUrl && (hasQuery(fallbackUrl) || !isSamePage(url, fallbackUrl))) {
       return null;
     }
     return url;
@@ -764,9 +770,12 @@ window['${id}']();`;
     } catch (e) {
     }
   }
-  function isSameBaseUrl(url) {
-    const givenUrl = new URL(url, window.location.origin), currentUrl = new URL(window.location.href);
-    return givenUrl.origin === currentUrl.origin && givenUrl.pathname === currentUrl.pathname;
+  function hasQuery(url) {
+    return new URL(url, window.location.href).search !== "";
+  }
+  function isSamePage(url, otherUrl) {
+    const givenUrl = new URL(url, window.location.href), comparedUrl = new URL(otherUrl, window.location.href);
+    return givenUrl.origin === comparedUrl.origin && givenUrl.pathname === comparedUrl.pathname;
   }
 
   // src/util/promise.js
@@ -1069,7 +1078,7 @@ window['${id}']();`;
         return;
       }
       if (this.options.browserRedirectBack) {
-        href = getReferrerUrl() || href;
+        href = getReferrerUrl(href) || href;
       }
       if (isTurboEnabled()) {
         turboVisit(href);
@@ -1171,7 +1180,8 @@ window['${id}']();`;
     }
     // Custom function, adds query data to the current URL
     applyQueryToUrl(queryData) {
-      const searchParams = new URLSearchParams(window.location.search);
+      const pageUrl = new URL(getPageUrl());
+      const searchParams = new URLSearchParams(pageUrl.search);
       for (const key of Object.keys(queryData)) {
         const value = queryData[key];
         if (Array.isArray(value)) {
@@ -1185,7 +1195,7 @@ window['${id}']();`;
           searchParams.set(key, value);
         }
       }
-      var newUrl = window.location.pathname, queryStr = searchParams.toString();
+      var newUrl = pageUrl.pathname, queryStr = searchParams.toString();
       if (queryStr) {
         newUrl += "?" + queryStr.replaceAll("%5B%5D=", "[]=");
       }
@@ -5107,8 +5117,7 @@ window['${id}']();`;
     }
     render(callback) {
       if (this.shouldRender()) {
-        this.delegate.pageIsReady = false;
-        this.countNewBodyModuleScripts();
+        this.delegate.beginPendingAssets();
         this.mergeHead();
         this.renderView(() => {
           this.replaceBody();
@@ -5143,27 +5152,26 @@ window['${id}']();`;
       }
     }
     copyNewHeadScriptElements() {
-      for (const element of this.getNewHeadScriptElements()) {
-        document.head.appendChild(
-          this.bindPendingAssetLoadedEventOnce(
-            this.createScriptElement(element)
-          )
-        );
+      for (const inertScriptElement of this.getNewHeadScriptElements()) {
+        const activatedScriptElement = this.createScriptElement(inertScriptElement);
+        document.head.appendChild(activatedScriptElement);
+        if (activatedScriptElement !== inertScriptElement) {
+          this.bindPendingScriptElement(activatedScriptElement);
+        }
       }
     }
-    bindPendingAssetLoadedEventOnce(element) {
-      if (!element.hasAttribute("src")) {
-        return element;
+    // Holds page:loaded until the script has run, for each script a full page
+    // load would run before DOMContentLoaded
+    bindPendingScriptElement(element) {
+      if (!isPendingScript(element)) {
+        return;
       }
-      var self = this, settleEvent = function() {
-        self.delegate.decrementPendingAsset();
-        element.removeEventListener("load", settleEvent);
-        element.removeEventListener("error", settleEvent);
-      };
-      element.addEventListener("load", settleEvent);
-      element.addEventListener("error", settleEvent);
-      this.delegate.incrementPendingAsset();
-      return element;
+      const settle = this.delegate.trackPendingAsset();
+      if (element.hasAttribute("src")) {
+        settleOnLoadOnce(element, settle);
+      } else {
+        insertModuleLoadedSignal(element, settle);
+      }
     }
     removeCurrentHeadProvisionalElements() {
       for (const element of this.getCurrentHeadProvisionalElements()) {
@@ -5197,16 +5205,9 @@ window['${id}']();`;
     activateNewBodyScriptElements() {
       for (const inertScriptElement of this.getNewBodyScriptElements()) {
         const activatedScriptElement = this.createScriptElement(inertScriptElement);
-        if (activatedScriptElement.getAttribute("type") === "module") {
-          activatedScriptElement.textContent += "\ndispatchEvent(new CustomEvent('turbo:module-loaded'));";
-        }
-        replaceElementWithElement(inertScriptElement, activatedScriptElement);
-      }
-    }
-    countNewBodyModuleScripts() {
-      for (const element of this.getNewBodyScriptElements()) {
-        if (element.getAttribute("type") === "module") {
-          this.delegate.incrementPendingAsset();
+        if (activatedScriptElement !== inertScriptElement) {
+          replaceElementWithElement(inertScriptElement, activatedScriptElement);
+          this.bindPendingScriptElement(activatedScriptElement);
         }
       }
     }
@@ -5238,6 +5239,44 @@ window['${id}']();`;
       return array(this.newBody.querySelectorAll("script"));
     }
   };
+  function isPendingScript(element) {
+    const type = (element.getAttribute("type") || "").trim().toLowerCase();
+    if (element.hasAttribute("async")) {
+      return false;
+    }
+    if (type === "module") {
+      return true;
+    }
+    return element.hasAttribute("src") && !element.hasAttribute("nomodule") && (type === "" || /^(text|application)\/(x-)?(java|ecma)script$/.test(type));
+  }
+  function settleOnLoadOnce(element, settle) {
+    const settleEvent = () => {
+      element.removeEventListener("load", settleEvent);
+      element.removeEventListener("error", settleEvent);
+      settle();
+    };
+    element.addEventListener("load", settleEvent);
+    element.addEventListener("error", settleEvent);
+  }
+  function insertModuleLoadedSignal(element, settle) {
+    const id = uuid();
+    const signalElement = document.createElement("script");
+    const settleEvent = (event) => {
+      if (event.detail === id) {
+        removeEventListener("turbo:module-loaded", settleEvent);
+        signalElement.remove();
+        settle();
+      }
+    };
+    signalElement.setAttribute("type", "module");
+    signalElement.async = false;
+    if (element.nonce) {
+      signalElement.nonce = element.nonce;
+    }
+    signalElement.textContent = "dispatchEvent(new CustomEvent('turbo:module-loaded', { detail: '" + id + "' }));";
+    addEventListener("turbo:module-loaded", settleEvent);
+    element.parentNode.insertBefore(signalElement, element.nextSibling);
+  }
   function createPlaceholderForPermanentElement(permanentElement) {
     const element = document.createElement("meta");
     element.setAttribute("name", "turbo-permanent-placeholder");
@@ -5521,6 +5560,7 @@ window['${id}']();`;
       this.uniqueInlineScriptsLimit = 100;
       this.currentVisit = null;
       this.historyVisit = null;
+      this.outgoingLocation = null;
       this.pageIsReady = false;
       this.viewTransitionFinished = null;
       this.pageLoaded = () => {
@@ -5529,9 +5569,6 @@ window['${id}']();`;
         this.notifyApplicationAfterPageLoad();
         this.notifyApplicationAfterPageAndScriptsLoad();
         this.observeInlineScripts();
-      };
-      this.moduleLoaded = () => {
-        this.decrementPendingAsset();
       };
       this.clickCaptured = () => {
         removeEventListener("click", this.clickBubbled, false);
@@ -5556,7 +5593,6 @@ window['${id}']();`;
       if (_Controller.supported && !this.started) {
         addEventListener("click", this.clickCaptured, true);
         addEventListener("DOMContentLoaded", this.pageLoaded, false);
-        addEventListener("turbo:module-loaded", this.moduleLoaded, false);
         this.startHistory();
         this.scrollManager.start();
         this.started = true;
@@ -5579,7 +5615,6 @@ window['${id}']();`;
       if (this.started) {
         removeEventListener("click", this.clickCaptured, true);
         removeEventListener("DOMContentLoaded", this.pageLoaded, false);
-        removeEventListener("turbo:module-loaded", this.moduleLoaded, false);
         this.scrollManager.stop();
         this.stopHistory();
         this.started = false;
@@ -5643,6 +5678,10 @@ window['${id}']();`;
         return this.historyVisit.referrer.absoluteURL;
       }
     }
+    // URL of the page on screen, which trails the address bar while a visit loads
+    getPageUrl() {
+      return this.outgoingLocation ? this.outgoingLocation.absoluteURL : window.location.href;
+    }
     pushHistoryWithLocationAndRestorationIdentifier(locatable, restorationIdentifier) {
       this.historyVisit = this.currentVisit;
       this.location = Location.wrap(locatable);
@@ -5657,6 +5696,7 @@ window['${id}']();`;
     // History delegate
     historyPoppedToLocationWithRestorationIdentifier(location2, restorationIdentifier, direction) {
       if (this.enabled) {
+        this.holdOutgoingLocation(this.location);
         this.location = location2;
         this.restorationIdentifier = restorationIdentifier;
         this.takeOverScrollRestoration();
@@ -5687,8 +5727,22 @@ window['${id}']();`;
       restorationData.scrollPosition = position;
     }
     // Pending asset management
-    incrementPendingAsset() {
+    beginPendingAssets() {
+      this.pageIsReady = false;
+      this.pendingAssets = 0;
+      this.pendingAssetsRender = {};
+      this.settleVisitCompleted = this.trackPendingAsset();
+    }
+    trackPendingAsset() {
+      const render = this.pendingAssetsRender;
+      let settled = false;
       this.pendingAssets++;
+      return () => {
+        if (!settled && render === this.pendingAssetsRender) {
+          settled = true;
+          this.decrementPendingAsset();
+        }
+      };
     }
     decrementPendingAsset() {
       this.pendingAssets--;
@@ -5700,6 +5754,7 @@ window['${id}']();`;
     }
     // View
     render(options, callback) {
+      this.outgoingLocation = null;
       this.view.render(options, callback);
     }
     viewInvalidated() {
@@ -5793,8 +5848,19 @@ window['${id}']();`;
       this.currentVisit = this.createVisit(location2, action, properties);
       this.currentVisit.scrolled = !this.useScroll;
       this.markVisitDirection(action, properties.direction);
+      if (this.currentVisit.isSamePage) {
+        this.outgoingLocation = null;
+      } else {
+        this.holdOutgoingLocation(Location.currentLocation);
+      }
       this.currentVisit.start();
       this.notifyApplicationAfterVisitingLocation(location2);
+    }
+    // Keeps the first location, since a visit that replaces another leaves the same page on screen
+    holdOutgoingLocation(location2) {
+      if (!this.outgoingLocation) {
+        this.outgoingLocation = location2;
+      }
     }
     createVisit(location2, action, properties) {
       const visit = new Visit(this, location2, action, properties.restorationIdentifier);
@@ -5815,11 +5881,9 @@ window['${id}']();`;
         this.unmarkVisitDirection();
       }
       this.notifyApplicationAfterPageLoad(visit.getTimingMetrics());
-      if (this.pendingAssets === 0) {
-        this.pageIsReady = true;
-        this.notifyApplicationAfterPageAndScriptsLoad();
-        this.notifyApplicationAfterLoadScripts();
-      }
+      const settle = this.settleVisitCompleted || this.trackPendingAsset();
+      this.settleVisitCompleted = null;
+      settle();
     }
     clickEventIsSignificant(event) {
       return !(event.target && event.target.isContentEditable || event.defaultPrevented || event.which > 1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey);

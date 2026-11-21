@@ -340,6 +340,31 @@
     }
   };
 
+  // src/util/turbo.js
+  var _turboProvider = null;
+  function registerTurbo(turbo) {
+    _turboProvider = turbo;
+  }
+  function isTurboEnabled() {
+    return _turboProvider?.isEnabled() ?? false;
+  }
+  function turboVisit(url, options) {
+    if (_turboProvider) {
+      _turboProvider.visit(url, options);
+      return true;
+    }
+    return false;
+  }
+  function getTurboController() {
+    return _turboProvider?.controller ?? null;
+  }
+  function turboPageReady() {
+    return _turboProvider?.pageReady() ?? null;
+  }
+  function getPageUrl() {
+    return isTurboEnabled() ? getTurboController().getPageUrl() : window.location.href;
+  }
+
   // src/request/options.js
   var Options = class {
     constructor(handler, options) {
@@ -362,7 +387,7 @@
     getRequestOptions() {
       return {
         method: "POST",
-        url: this.options.url ? this.options.url : window.location.href,
+        url: this.options.url ? this.options.url : getPageUrl(),
         headers: this.buildHeaders()
       };
     }
@@ -717,32 +742,13 @@ window['${id}']();`;
     });
   }
 
-  // src/util/turbo.js
-  var _turboProvider = null;
-  function registerTurbo(turbo) {
-    _turboProvider = turbo;
-  }
-  function isTurboEnabled() {
-    return _turboProvider?.isEnabled() ?? false;
-  }
-  function turboVisit(url, options) {
-    if (_turboProvider) {
-      _turboProvider.visit(url, options);
-      return true;
-    }
-    return false;
-  }
-  function getTurboController() {
-    return _turboProvider?.controller ?? null;
-  }
-  function turboPageReady() {
-    return _turboProvider?.pageReady() ?? null;
-  }
-
   // src/util/referrer.js
-  function getReferrerUrl() {
+  function getReferrerUrl(fallbackUrl = null) {
     const url = isTurboEnabled() ? getTurboController().getLastVisitUrl() : getReferrerFromSameOrigin();
-    if (!url || isSameBaseUrl(url)) {
+    if (!url || isSamePage(url, window.location.href)) {
+      return null;
+    }
+    if (fallbackUrl && (hasQuery(fallbackUrl) || !isSamePage(url, fallbackUrl))) {
       return null;
     }
     return url;
@@ -764,9 +770,12 @@ window['${id}']();`;
     } catch (e) {
     }
   }
-  function isSameBaseUrl(url) {
-    const givenUrl = new URL(url, window.location.origin), currentUrl = new URL(window.location.href);
-    return givenUrl.origin === currentUrl.origin && givenUrl.pathname === currentUrl.pathname;
+  function hasQuery(url) {
+    return new URL(url, window.location.href).search !== "";
+  }
+  function isSamePage(url, otherUrl) {
+    const givenUrl = new URL(url, window.location.href), comparedUrl = new URL(otherUrl, window.location.href);
+    return givenUrl.origin === comparedUrl.origin && givenUrl.pathname === comparedUrl.pathname;
   }
 
   // src/util/promise.js
@@ -1069,7 +1078,7 @@ window['${id}']();`;
         return;
       }
       if (this.options.browserRedirectBack) {
-        href = getReferrerUrl() || href;
+        href = getReferrerUrl(href) || href;
       }
       if (isTurboEnabled()) {
         turboVisit(href);
@@ -1171,7 +1180,8 @@ window['${id}']();`;
     }
     // Custom function, adds query data to the current URL
     applyQueryToUrl(queryData) {
-      const searchParams = new URLSearchParams(window.location.search);
+      const pageUrl = new URL(getPageUrl());
+      const searchParams = new URLSearchParams(pageUrl.search);
       for (const key of Object.keys(queryData)) {
         const value = queryData[key];
         if (Array.isArray(value)) {
@@ -1185,7 +1195,7 @@ window['${id}']();`;
           searchParams.set(key, value);
         }
       }
-      var newUrl = window.location.pathname, queryStr = searchParams.toString();
+      var newUrl = pageUrl.pathname, queryStr = searchParams.toString();
       if (queryStr) {
         newUrl += "?" + queryStr.replaceAll("%5B%5D=", "[]=");
       }
